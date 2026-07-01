@@ -1,0 +1,2402 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>vMix Scoreboard Controller — YRU Stadium</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-25..0&display=block');
+:root {
+  --bg-void:#040608;--bg-card:rgba(13,20,32,0.88);--glass-border:rgba(255,255,255,0.07);
+  --glass-shine:rgba(255,255,255,0.04);--accent-blue:#3b9eff;--accent-cyan:#00d4ff;
+  --accent-green:#00e676;--accent-amber:#ffb300;--accent-red:#ff3d3d;--accent-purple:#b57bff;
+  --text-primary:#f0f4ff;--text-secondary:#8a9bc8;--text-muted:#4a5568;
+  --glow-blue:0 0 20px rgba(59,158,255,0.3);--glow-green:0 0 20px rgba(0,230,118,0.3);
+  --radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:20px;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+
+/* UNIFIED ICON SYSTEM — Google Material Symbols Rounded, single-color, same direction everywhere */
+.msr{
+  font-family:'Material Symbols Rounded';
+  font-weight:normal;
+  font-style:normal;
+  font-size:20px;
+  line-height:1;
+  letter-spacing:normal;
+  text-transform:none;
+  display:inline-block;
+  white-space:nowrap;
+  word-wrap:normal;
+  direction:ltr;
+  -webkit-font-feature-settings:'liga';
+  -webkit-font-smoothing:antialiased;
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+  vertical-align:middle;
+  color:currentColor;
+}
+.msr.fill{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
+.msr.sm{font-size:16px;}
+.msr.lg{font-size:28px;}
+.msr.xl{font-size:36px;}
+html{font-size:14px;-webkit-text-size-adjust:100%;}
+body{font-family:'Inter',sans-serif;background:var(--bg-void);color:var(--text-primary);min-height:100dvh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(59,158,255,0.08) 0%,transparent 60%),radial-gradient(ellipse 40% 30% at 80% 80%,rgba(0,212,255,0.04) 0%,transparent 50%);}
+.app-shell{display:flex;flex-direction:column;height:100dvh;width:100%;}
+
+/* HEADER */
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;
+  background:rgba(8,12,18,0.97);border-bottom:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:sticky;top:0;z-index:100;flex-shrink:0;
+  gap:8px;flex-wrap:nowrap;min-height:0;}
+.header-logo{display:flex;align-items:center;gap:8px;min-width:0;flex-shrink:1;}
+.header-logo-icon{width:28px;height:28px;background:linear-gradient(135deg,var(--accent-blue),var(--accent-cyan));
+  border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:var(--glow-blue);flex-shrink:0;}
+.header-text{min-width:0;overflow:hidden;}
+.header-title{font-size:13px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.header-sub{font-size:10px;color:var(--text-secondary);font-family:var(--font-mono);font-weight:400;}
+.header-controls{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;flex-shrink:0;}
+.vmix-status-badge{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;
+  border:1px solid var(--glass-border);background:var(--glass-shine);cursor:pointer;transition:all 0.2s;font-size:10px;font-weight:600;white-space:nowrap;}
+.sync-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;
+  border:1px solid rgba(59,158,255,0.4);background:rgba(59,158,255,0.08);color:var(--accent-blue);
+  font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.header-mini-select{padding:4px 7px;border-radius:20px;border:1px solid var(--glass-border);
+  background:rgba(255,255,255,0.04);color:var(--text-secondary);font-family:inherit;font-size:9px;
+  font-weight:700;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' fill='%238a9bc8'%3E%3Cpath d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 6px center;padding-right:16px;white-space:nowrap;}
+.header-mini-select:focus{border-color:var(--accent-blue);}
+.sync-btn:active{transform:scale(0.93);background:rgba(59,158,255,0.18);}
+.sync-btn.syncing{pointer-events:none;opacity:0.7;}
+.sync-btn.syncing .sync-icon{animation:spin 0.7s linear infinite;}
+.sync-icon{font-size:13px;display:inline-block;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.vmix-status-badge.connected{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.vmix-status-badge.disconnected{border-color:rgba(255,61,61,0.4);color:var(--accent-red);}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.vmix-status-badge.connected .status-dot{animation:pulseDot 1.5s infinite;}
+.vmix-status-badge.disconnected .status-dot{animation:pulseDot 2.5s infinite;opacity:0.6;}
+@keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor;}50%{opacity:0.6;box-shadow:0 0 0 4px transparent;}}
+/* Portrait (narrow): hide title text, show logo icon only — all in one row */
+@media(max-width:600px){
+  .header-text{display:none;}
+  .app-header{flex-wrap:nowrap;}
+}
+/* Landscape: restore title text */
+@media(min-width:601px){
+  .header-text{display:block;}
+  .app-header{flex-wrap:nowrap;}
+}
+
+/* TAB BAR — order: Match | Media | Settings | vMix */
+.tab-bar{display:flex;background:rgba(8,12,18,0.98);border-top:1px solid var(--glass-border);
+  position:sticky;bottom:0;z-index:100;padding:2px 4px 6px;gap:2px;flex-shrink:0;}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:6px 4px;border:none;background:transparent;color:var(--text-muted);
+  cursor:pointer;border-radius:var(--radius-md);transition:all 0.2s;font-family:inherit;min-height:52px;}
+.tab-btn:active{transform:scale(0.92);}
+.tab-btn.active{color:var(--accent-blue);background:rgba(59,158,255,0.1);}
+.tab-btn svg{width:20px;height:20px;flex-shrink:0;}
+.tab-label{font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;line-height:1;}
+
+/* MAIN */
+.main-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px;scroll-behavior:smooth;}
+.main-content::-webkit-scrollbar{width:3px;}
+.main-content::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:2px;}
+.panel{display:none;}
+.panel.active{display:flex;flex-direction:column;gap:12px;}
+@media(min-width:768px){
+  .main-content{padding:16px 24px;}
+  .panel.active{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+  .panel.active .full-width{grid-column:1/-1;}
+}
+@media(min-width:1024px){.panel.active{grid-template-columns:1fr 1fr 1fr;}}
+
+/* CARD */
+.card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-lg);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;}
+.card-header{display:flex;align-items:center;padding:12px 14px 10px;border-bottom:1px solid var(--glass-border);gap:8px;}
+.card-header-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.card-header-title{font-size:12px;font-weight:700;letter-spacing:0.3px;flex:1;}
+.card-header-badge{font-size:10px;font-family:var(--font-mono);padding:2px 7px;border-radius:10px;border:1px solid currentColor;opacity:0.7;}
+.card-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+
+/* SCORE HERO */
+.score-hero{background:linear-gradient(135deg,rgba(13,20,32,0.92),rgba(8,14,24,0.97));
+  border:1px solid var(--glass-border);border-radius:var(--radius-xl);position:relative;overflow:hidden;}
+.score-hero::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(59,158,255,0.07) 0%,transparent 60%);pointer-events:none;}
+.score-hero-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid var(--glass-border);}
+.score-hero-title{font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.5px;}
+.match-mode-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+  font-size:10px;font-weight:700;border:1px solid rgba(255,179,0,0.35);color:var(--accent-amber);background:rgba(255,179,0,0.06);}
+
+/* UNIFIED SCOREBOARD DISPLAY (replaces old duplicated score+preview) */
+.sb-preview-main{position:relative;border-radius:var(--radius-lg);overflow:hidden;
+  border:1px solid var(--glass-border);background:#000;min-height:140px;}
+.sb-main-inner{display:flex;align-items:center;justify-content:space-between;width:100%;height:100%;
+  min-height:140px;background:linear-gradient(90deg,rgba(13,20,40,0.95),rgba(8,14,28,0.98));padding:16px 18px;gap:8px;}
+.sb-main-inner .sb-team-block{flex-direction:column;gap:8px;flex:0 0 auto;}
+.sb-main-inner .sb-team-block.away{flex-direction:column;}
+.sb-main-inner .sb-team-logo{width:48px;height:48px;font-size:24px;border-radius:8px;}
+.sb-main-inner .sb-team-name{font-size:12px;max-width:90px;letter-spacing:0.5px;}
+.sb-center-block{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.sb-period-label{font-family:var(--font-mono);font-size:10px;font-weight:700;color:rgba(59,158,255,0.85);
+  letter-spacing:2px;text-transform:uppercase;}
+.sb-score-row{display:flex;align-items:center;gap:10px;}
+.sb-score-num-big{font-family:var(--font-mono);font-size:clamp(48px,13vw,72px);font-weight:900;color:#fff;
+  line-height:1;text-shadow:0 0 30px rgba(255,255,255,0.15);}
+.sb-score-sep-big{font-family:var(--font-mono);font-size:clamp(28px,7vw,40px);font-weight:300;color:rgba(255,255,255,0.3);}
+.sb-clock-big{font-family:var(--font-mono);font-size:15px;font-weight:600;color:rgba(255,255,255,0.65);letter-spacing:1px;margin-top:2px;}
+.sb-color-bar-home{position:absolute;left:0;top:0;bottom:0;width:4px;z-index:2;}
+.sb-color-bar-away{position:absolute;right:0;top:0;bottom:0;width:4px;z-index:2;}
+
+/* Score adjust buttons — moved below the scoreboard display */
+.score-adjust-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 16px;}
+.score-adjust-col{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.score-adjust-label{font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:1px;
+  text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;}
+.score-btns{display:flex;gap:8px;}
+.score-adj-btn{width:44px;height:44px;border-radius:var(--radius-md);border:1px solid var(--glass-border);
+  background:var(--glass-shine);font-size:22px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:all 0.12s;display:flex;align-items:center;justify-content:center;}
+.score-adj-btn.plus{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.score-adj-btn.minus{border-color:rgba(255,61,61,0.3);color:var(--accent-red);}
+.score-adj-btn:active{transform:scale(0.85);}
+
+/* Shared team block / logo styles used by both main scoreboard and (legacy) refs */
+.sb-team-block{display:flex;align-items:center;gap:6px;flex:1;min-width:0;}
+.sb-team-block.away{flex-direction:row-reverse;}
+.sb-team-logo{width:28px;height:28px;border-radius:4px;flex-shrink:0;background:rgba(255,255,255,0.08);
+  display:flex;align-items:center;justify-content:center;font-size:14px;overflow:hidden;}
+.sb-team-logo img{width:100%;height:100%;object-fit:contain;}
+.sb-team-name{font-size:10px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70px;}
+
+/* CLOCK CARD IN SETTINGS */
+.clock-card{background:linear-gradient(135deg,rgba(13,20,32,0.92),rgba(8,14,24,0.97));
+  border:1px solid var(--glass-border);border-radius:var(--radius-xl);overflow:hidden;}
+.clock-card-header{display:flex;align-items:center;padding:12px 14px 10px;border-bottom:1px solid var(--glass-border);gap:8px;}
+.clock-card-title{font-size:12px;font-weight:700;flex:1;}
+.clock-inner{padding:18px 16px 14px;display:flex;flex-direction:column;align-items:center;position:relative;}
+.clock-inner::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(59,158,255,0.07) 0%,transparent 60%);pointer-events:none;}
+.clock-half-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent-blue);margin-bottom:2px;}
+.clock-display{font-family:var(--font-mono);font-size:clamp(48px,13vw,72px);font-weight:700;
+  letter-spacing:-2px;color:var(--text-primary);line-height:1;
+  text-shadow:0 0 40px rgba(59,158,255,0.3);transition:color 0.3s;user-select:none;}
+.clock-display.running{color:#fff;text-shadow:0 0 30px rgba(59,158,255,0.5);}
+.clock-display.paused{color:var(--accent-amber);}
+.clock-display.stopped{color:var(--text-secondary);}
+.period-switcher{display:flex;gap:5px;width:100%;margin-top:8px;flex-wrap:wrap;}
+.period-btn{flex:1;min-width:0;padding:6px 4px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  background:transparent;color:var(--text-muted);font-size:10px;font-weight:700;
+  font-family:inherit;cursor:pointer;transition:all 0.15s;text-align:center;white-space:nowrap;}
+.period-btn.active{border-color:rgba(59,158,255,0.5);color:var(--accent-blue);background:rgba(59,158,255,0.1);}
+.period-btn:active{transform:scale(0.93);}
+.clock-controls{display:flex;gap:8px;margin-top:12px;width:100%;}
+.clock-btn{flex:1;padding:10px 8px;border:1px solid var(--glass-border);border-radius:var(--radius-md);
+  background:var(--glass-shine);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.clock-btn:active{transform:scale(0.93);}
+.clock-btn.start-btn{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.clock-btn.start-btn:active{background:rgba(0,230,118,0.12);}
+.clock-btn.pause-btn{border-color:rgba(255,179,0,0.4);color:var(--accent-amber);}
+.clock-btn.pause-btn:active{background:rgba(255,179,0,0.12);}
+.clock-btn.reset-btn{border-color:rgba(255,61,61,0.3);color:var(--accent-red);}
+.clock-btn.reset-btn:active{background:rgba(255,61,61,0.1);}
+.clock-btn-icon{font-size:16px;line-height:1;}
+.clock-btn-label{font-size:9px;letter-spacing:1px;}
+
+/* MACRO BUTTONS INSIDE CLOCK CARD — with confirmation guard */
+.macro-zone{padding:12px 14px;border-top:1px solid var(--glass-border);display:flex;flex-direction:column;gap:8px;}
+.macro-zone-label{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;}
+.goal-btn{width:100%;padding:14px;border-radius:var(--radius-lg);border:1px solid rgba(255,179,0,0.4);
+  background:linear-gradient(135deg,rgba(255,179,0,0.08),rgba(255,120,0,0.05));color:var(--accent-amber);
+  font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.15s;text-transform:uppercase;}
+.goal-btn:active{transform:scale(0.97);background:rgba(255,179,0,0.15);}
+.goal-btn:disabled{opacity:0.4;pointer-events:none;}
+.start-match-btn{width:100%;padding:13px;border-radius:var(--radius-lg);border:1px solid rgba(59,158,255,0.45);
+  background:linear-gradient(135deg,rgba(59,158,255,0.15),rgba(0,212,255,0.08));color:var(--accent-blue);
+  font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:1px;
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.15s;text-transform:uppercase;}
+.start-match-btn:active{transform:scale(0.97);box-shadow:var(--glow-blue);}
+/* Confirm overlay */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
+.confirm-box{background:rgba(13,20,32,0.98);border:1px solid var(--glass-border);border-radius:var(--radius-xl);
+  padding:24px 20px;max-width:320px;width:100%;display:flex;flex-direction:column;gap:14px;text-align:center;}
+.confirm-title{font-size:16px;font-weight:800;color:var(--accent-amber);}
+.confirm-body{font-size:13px;color:var(--text-secondary);line-height:1.5;}
+.confirm-btns{display:flex;gap:10px;}
+.confirm-yes{flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid rgba(0,230,118,0.4);
+  background:rgba(0,230,118,0.1);color:var(--accent-green);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.confirm-no{flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid var(--glass-border);
+  background:transparent;color:var(--text-secondary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.confirm-yes:active,.confirm-no:active{transform:scale(0.97);}
+
+/* SEND BTN */
+.send-btn{width:100%;padding:11px;border-radius:var(--radius-md);border:1px solid rgba(59,158,255,0.35);
+  background:linear-gradient(135deg,rgba(59,158,255,0.12),rgba(0,212,255,0.06));color:var(--accent-blue);
+  font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;}
+.send-btn:active{transform:scale(0.97);}
+
+/* FORMS */
+.field-group{display:flex;flex-direction:column;gap:4px;}
+.field-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-secondary);}
+.field-input{width:100%;padding:9px 11px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);
+  border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;
+  outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
+.field-input:focus{border-color:var(--accent-blue);}
+.field-input::placeholder{color:var(--text-muted);}
+select.field-input{cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%238a9bc8'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;appearance:none;-webkit-appearance:none;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.field-row-3{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:6px;}
+.color-row{display:flex;align-items:center;gap:8px;}
+.color-row .field-input{flex:1;}
+.color-swatch-btn{width:38px;height:38px;flex-shrink:0;border-radius:var(--radius-sm);border:2px solid var(--glass-border);cursor:pointer;padding:0;overflow:hidden;}
+.color-swatch-btn input[type="color"]{width:100%;height:100%;border:none;cursor:pointer;padding:0;appearance:none;background:none;}
+.upload-area{border:1px dashed var(--glass-border);border-radius:var(--radius-md);padding:14px 10px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:all 0.2s;text-align:center;}
+.upload-area:hover{border-color:var(--accent-blue);background:rgba(59,158,255,0.03);}
+.upload-area input{display:none;}
+.upload-label{font-size:11px;color:var(--text-secondary);}
+.logo-thumb{width:48px;height:48px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:var(--text-muted);flex-shrink:0;overflow:hidden;}
+.logo-thumb img{width:100%;height:100%;object-fit:contain;}
+.segmented{display:flex;background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:3px;gap:3px;}
+.seg-btn{flex:1;padding:7px 6px;border:none;border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);
+  font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s;text-align:center;}
+.seg-btn.active{background:rgba(59,158,255,0.15);color:var(--accent-blue);}
+.seg-btn:active{transform:scale(0.96);}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;}
+.toggle-label{font-size:12px;font-weight:600;color:var(--text-secondary);}
+.toggle{width:44px;height:24px;border-radius:12px;background:var(--text-muted);position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0;border:none;}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s;}
+.toggle.on{background:var(--accent-blue);}
+.toggle.on::after{left:23px;}
+.date-preview{background:rgba(59,158,255,0.06);border:1px solid rgba(59,158,255,0.15);border-radius:var(--radius-sm);
+  padding:10px 12px;font-family:var(--font-mono);font-size:12px;color:var(--accent-cyan);text-align:center;}
+.team-section{background:rgba(255,255,255,0.02);border-radius:var(--radius-md);border:1px solid var(--glass-border);overflow:hidden;}
+.team-header{padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:8px;}
+.team-color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.team-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px;}
+.timing-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+.timing-label{font-size:11px;color:var(--text-secondary);}
+.timing-input{width:90px;padding:6px 8px;text-align:right;background:rgba(255,255,255,0.04);
+  border:1px solid var(--glass-border);border-radius:var(--radius-sm);color:var(--text-primary);
+  font-family:var(--font-mono);font-size:12px;outline:none;}
+.timing-input:focus{border-color:var(--accent-blue);}
+.ms-label{font-size:10px;color:var(--text-muted);}
+.flow-diagram{background:rgba(0,0,0,0.3);border-radius:var(--radius-sm);padding:10px 12px;
+  font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);line-height:1.8;}
+.flow-step{display:flex;align-items:center;gap:8px;}
+.flow-arrow{color:var(--text-muted);}
+.flow-name{color:var(--accent-cyan);}
+.flow-active .flow-name{color:var(--accent-green);font-weight:700;}
+
+/* PERIOD SETTINGS */
+.period-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.period-mode-row{display:flex;gap:6px;}
+.period-mode-btn{flex:1;padding:7px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  background:transparent;color:var(--text-muted);font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.15s;text-align:center;}
+.period-mode-btn.active{border-color:rgba(59,158,255,0.5);color:var(--accent-blue);background:rgba(59,158,255,0.1);}
+.period-mode-btn:active{transform:scale(0.95);}
+.period-count-btn{width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:transparent;color:var(--text-primary);font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
+.period-count-btn:active{transform:scale(0.88);background:rgba(59,158,255,0.1);}
+.period-count-display{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent-blue);min-width:30px;text-align:center;}
+
+/* MEDIA */
+.upload-row{display:flex;gap:8px;}
+.upload-btn{flex:1;padding:10px;border:1px dashed var(--glass-border);border-radius:var(--radius-md);
+  background:transparent;color:var(--text-secondary);font-family:inherit;font-size:11px;font-weight:700;
+  cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:6px;}
+.upload-btn:active{background:rgba(255,255,255,0.04);}
+.upload-btn.vid{border-color:rgba(181,123,255,0.3);color:var(--accent-purple);}
+.upload-btn.aud{border-color:rgba(59,158,255,0.3);color:var(--accent-blue);}
+.upload-btn input{display:none;}
+.now-playing-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.2);border-radius:var(--radius-sm);
+  font-size:11px;color:var(--accent-green);font-weight:600;}
+.playing-wave{display:flex;align-items:flex-end;gap:2px;height:14px;}
+.playing-wave span{width:3px;background:var(--accent-green);border-radius:2px;animation:wave 0.8s ease-in-out infinite;}
+.playing-wave span:nth-child(2){animation-delay:0.1s;}
+.playing-wave span:nth-child(3){animation-delay:0.2s;}
+@keyframes wave{0%,100%{height:4px;}50%{height:14px;}}
+.media-list{display:flex;flex-direction:column;gap:6px;}
+.media-item{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:rgba(255,255,255,0.02);border:1px solid var(--glass-border);border-radius:var(--radius-md);
+  transition:all 0.15s;cursor:grab;user-select:none;}
+.media-item.dragging{opacity:0.4;border-color:var(--accent-blue);}
+.media-item.drag-over{border-color:var(--accent-cyan);background:rgba(0,212,255,0.05);}
+.drag-handle{color:var(--text-muted);font-size:14px;cursor:grab;padding:2px 4px;flex-shrink:0;}
+.media-icon{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.media-icon.video{background:rgba(181,123,255,0.15);}
+.media-icon.audio{background:rgba(59,158,255,0.15);}
+.media-info{flex:1;min-width:0;}
+.media-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.media-meta{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:3px;}
+.media-actions{display:flex;gap:4px;flex-shrink:0;}
+.media-btn{width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:transparent;color:var(--text-secondary);cursor:pointer;transition:all 0.12s;
+  display:flex;align-items:center;justify-content:center;font-size:13px;}
+.media-btn:active{transform:scale(0.85);}
+.media-btn.playing{color:var(--accent-green);border-color:rgba(0,230,118,0.3);}
+.media-btn.audio-only{color:var(--accent-cyan);border-color:rgba(0,212,255,0.3);}
+.media-btn.fade{color:var(--accent-purple);border-color:rgba(181,123,255,0.3);}
+.media-btn.del{color:var(--accent-red);border-color:rgba(255,61,61,0.2);}
+.vol-slider{width:70px;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;outline:none;cursor:pointer;}
+.vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:white;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.5);}
+.playlist-section{background:rgba(0,0,0,0.3);border:1px solid rgba(59,158,255,0.15);border-radius:var(--radius-md);padding:10px 12px;}
+.playlist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.playlist-title{font-size:11px;font-weight:700;color:var(--accent-cyan);}
+.playlist-controls{display:flex;gap:5px;}
+.pl-btn{padding:4px 9px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:transparent;color:var(--text-secondary);font-size:10px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.15s;}
+.pl-btn:active{transform:scale(0.93);}
+.pl-btn.loop-on{color:var(--accent-cyan);border-color:rgba(0,212,255,0.4);}
+.playlist-queue{display:flex;flex-direction:column;gap:3px;max-height:150px;overflow-y:auto;}
+.pl-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--radius-sm);font-size:11px;border:1px solid transparent;}
+.pl-item.playing{background:rgba(0,230,118,0.08);border-color:rgba(0,230,118,0.2);color:var(--accent-green);}
+.pl-item-num{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);width:16px;text-align:right;flex-shrink:0;}
+.pl-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pl-item-remove{color:var(--text-muted);cursor:pointer;padding:0 4px;font-size:14px;}
+.pl-item-remove:hover{color:var(--accent-red);}
+.pl-drop-zone{border:1px dashed rgba(59,158,255,0.2);border-radius:var(--radius-sm);padding:8px;text-align:center;font-size:10px;color:var(--text-muted);margin-top:4px;}
+
+/* vMIX INPUTS — sticky inside media panel */
+.vmix-inputs-sticky{position:sticky;top:0;z-index:50;margin:-12px -12px 0;padding:10px 12px 8px;
+  background:rgba(8,12,18,0.97);border-bottom:1px solid var(--glass-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+@media(min-width:768px){.vmix-inputs-sticky{margin:-16px -24px 0;padding:12px 24px 10px;}}
+.vmix-inputs-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.vmix-inputs-title{font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.5px;flex:1;}
+.vmix-inputs-badges{display:flex;gap:6px;font-size:10px;}
+.vmix-inputs-badges span{display:flex;align-items:center;gap:3px;}
+.vmix-inputs-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+.vmix-inputs-scroll::-webkit-scrollbar{height:2px;}
+.vmix-inputs-scroll::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:1px;}
+.vmix-chip{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:5px 10px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:20px;
+  font-size:10px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.vmix-chip:active{transform:scale(0.95);}
+.vmix-chip.pgm{border-color:rgba(255,61,61,0.4);background:rgba(255,61,61,0.07);color:var(--accent-red);}
+.vmix-chip.pvw{border-color:rgba(0,230,118,0.3);background:rgba(0,230,118,0.06);color:var(--accent-green);}
+.vmix-chip.normal{color:var(--text-secondary);}
+.vmix-chip-num{font-family:var(--font-mono);font-size:9px;opacity:0.6;}
+.vmix-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+/* vMIX CONNECT */
+.connect-status-card{padding:18px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;}
+.connect-indicator{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:26px;border:2px solid var(--glass-border);transition:all 0.3s;}
+.connect-indicator.connected{border-color:var(--accent-green);background:rgba(0,230,118,0.1);box-shadow:0 0 30px rgba(0,230,118,0.2);}
+.connect-indicator.disconnected{border-color:var(--accent-red);background:rgba(255,61,61,0.08);}
+.connect-btn{width:100%;padding:11px;border-radius:var(--radius-md);border:1px solid var(--glass-border);
+  background:var(--glass-shine);color:var(--text-primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.connect-btn.conn{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.connect-btn.disconn{border-color:rgba(255,61,61,0.4);color:var(--accent-red);}
+.connect-btn:active{transform:scale(0.97);}
+.api-log{background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  padding:8px 10px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);
+  line-height:1.6;max-height:130px;overflow-y:auto;}
+.log-entry{display:flex;gap:8px;}
+.log-time{color:var(--text-muted);flex-shrink:0;}
+.log-msg.ok{color:var(--accent-green);}
+.log-msg.err{color:var(--accent-red);}
+.log-msg.info{color:var(--accent-cyan);}
+.cors-warning{background:rgba(255,179,0,0.07);border:1px solid rgba(255,179,0,0.3);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--accent-amber);line-height:1.5;}
+.cors-warning strong{display:block;font-size:11px;font-weight:700;margin-bottom:3px;}
+.cors-code{font-family:var(--font-mono);font-size:10px;background:rgba(0,0,0,0.4);padding:6px 8px;border-radius:5px;display:block;margin-top:5px;color:#fff;word-break:break-all;}
+.icon-btn{background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  padding:4px 8px;color:var(--text-secondary);font-size:11px;cursor:pointer;font-family:inherit;transition:all 0.15s;display:flex;align-items:center;gap:4px;}
+.icon-btn:active{transform:scale(0.93);}
+
+/* vMIX INPUT CONTROL CARDS */
+.vmix-input-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;}
+.vmix-input-card{background:#000;border:1px solid var(--glass-border);border-radius:var(--radius-lg);
+  overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;}
+.vmix-input-card.is-pgm{border-color:rgba(255,61,61,0.55);box-shadow:0 0 14px rgba(255,61,61,0.18);}
+.vmix-input-card.is-pvw{border-color:rgba(0,230,118,0.45);box-shadow:0 0 12px rgba(0,230,118,0.12);}
+/* row 1: num + type + status badge */
+.vic-meta-row{display:flex;align-items:center;gap:6px;padding:9px 10px 4px;min-width:0;}
+.vic-num{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;}
+.vic-type-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;flex-shrink:0;
+  background:rgba(255,255,255,0.06);color:var(--text-muted);border:1px solid rgba(255,255,255,0.08);}
+.vic-meta-spacer{flex:1;}
+.vic-status-badge{font-size:9px;font-weight:800;padding:2px 8px;border-radius:10px;
+  display:flex;align-items:center;gap:3px;flex-shrink:0;}
+.vic-status-badge.pgm{background:rgba(255,61,61,0.2);color:var(--accent-red);border:1px solid rgba(255,61,61,0.4);}
+.vic-status-badge.pvw{background:rgba(0,230,118,0.15);color:var(--accent-green);border:1px solid rgba(0,230,118,0.35);}
+/* row 2: title + playlist btn */
+.vic-title-row{display:flex;align-items:center;gap:6px;padding:0 10px 8px;min-width:0;}
+.vic-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+.vic-addpl-btn{flex-shrink:0;display:flex;align-items:center;gap:3px;
+  padding:3px 7px;border-radius:var(--radius-sm);border:1px solid rgba(0,230,118,0.3);
+  background:transparent;color:var(--accent-green);font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;
+  transition:all 0.12s;white-space:nowrap;}
+.vic-addpl-btn:active{transform:scale(0.92);background:rgba(0,230,118,0.1);}
+/* playing indicator row */
+.vic-playing-row{display:flex;align-items:center;gap:5px;padding:0 10px 6px;}
+.vic-playing-indicator{display:flex;align-items:center;gap:5px;}
+/* 7 control buttons */
+.vic-controls{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:4px 8px 10px;border-top:1px solid var(--glass-border);}
+.vic-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;
+  border-radius:var(--radius-sm);border:1px solid var(--glass-border);background:transparent;
+  color:var(--text-secondary);cursor:pointer;transition:all 0.12s;font-family:inherit;}
+.vic-btn:active{transform:scale(0.88);}
+.vic-btn-label{font-size:8px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;line-height:1;}
+.vic-btn.overlay{color:var(--accent-purple);border-color:rgba(181,123,255,0.35);}
+.vic-btn.overlay:active,.vic-btn.overlay.active{background:rgba(181,123,255,0.15);}
+.vic-btn.audio{color:var(--accent-cyan);border-color:rgba(0,212,255,0.35);}
+.vic-btn.audio.active{background:rgba(0,212,255,0.15);border-color:rgba(0,212,255,0.6);}
+.vic-btn.cut{color:var(--accent-red);border-color:rgba(255,61,61,0.35);}
+.vic-btn.cut:active{background:rgba(255,61,61,0.12);}
+.vic-btn.fade-in{color:var(--accent-blue);border-color:rgba(59,158,255,0.35);}
+.vic-btn.fade-in:active{background:rgba(59,158,255,0.12);}
+.vic-btn.reset{color:var(--accent-amber);border-color:rgba(255,179,0,0.35);}
+.vic-btn.reset:active{background:rgba(255,179,0,0.1);}
+.vic-btn.playpause{color:var(--accent-green);border-color:rgba(0,230,118,0.35);}
+.vic-btn.playpause.active{background:rgba(0,230,118,0.12);border-color:rgba(0,230,118,0.6);}
+.vic-btn.loop{color:var(--accent-cyan);border-color:rgba(0,212,255,0.35);}
+.vic-btn.loop.active{background:rgba(0,212,255,0.15);border-color:rgba(0,212,255,0.6);}
+/* PVW ← → PGM header bar */
+.vic-pgm-pvw-bar{display:flex;align-items:center;gap:0;width:100%;}
+.vic-pgm-pvw-bar .pvw-side{display:flex;align-items:center;gap:6px;flex:1;min-width:0;
+  padding:5px 8px;background:rgba(0,230,118,0.07);border-radius:var(--radius-sm);
+  border:1px solid rgba(0,230,118,0.2);}
+.vic-pgm-pvw-bar .pgm-side{display:flex;align-items:center;gap:6px;flex:1;min-width:0;
+  padding:5px 8px;background:rgba(255,61,61,0.07);border-radius:var(--radius-sm);
+  border:1px solid rgba(255,61,61,0.2);justify-content:flex-end;}
+.vic-pgm-pvw-bar .vs-sep{font-size:11px;color:var(--text-muted);padding:0 6px;flex-shrink:0;}
+.vic-pvw-label,.vic-pgm-label{font-size:9px;font-weight:800;letter-spacing:1px;flex-shrink:0;}
+.vic-pvw-label{color:var(--accent-green);}
+.vic-pgm-label{color:var(--accent-red);}
+.vic-pvw-name,.vic-pgm-name{font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vic-pvw-name{color:var(--text-primary);}
+.vic-pgm-name{color:var(--text-primary);text-align:right;}
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(13,20,32,0.97);border:1px solid var(--glass-border);border-radius:var(--radius-md);
+  padding:10px 16px;font-size:12px;font-weight:600;backdrop-filter:blur(20px);
+  opacity:0;transition:all 0.3s;pointer-events:none;z-index:9999;
+  white-space:nowrap;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.success{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.toast.error{border-color:rgba(255,61,61,0.4);color:var(--accent-red);}
+.toast.info{border-color:rgba(59,158,255,0.4);color:var(--accent-blue);}
+@media(min-width:768px){.clock-display{font-size:72px;}.score-number{font-size:64px;}}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="header-logo">
+    <div class="header-logo-icon"><span class="msr fill" style="color:#fff;">sports_soccer</span></div>
+    <div class="header-text">
+      <div class="header-title">YRU Scoreboard <span class="header-sub">— vMix Controller v3.0</span></div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <select class="header-mini-select" id="headerMatchMode" onchange="setMatchMode(this.value)">
+      <option value="thai">Thai League</option>
+      <option value="general">General</option>
+    </select>
+    <select class="header-mini-select" id="headerTitleType" onchange="setTitleType(this.value)">
+      <option value="name">Title</option>
+      <option value="logo" selected>Logo</option>
+    </select>
+    <div class="vmix-status-badge disconnected" id="statusBadge" onclick="switchTab('vmix')">
+      <div class="status-dot"></div>
+      <span id="statusText">OFFLINE</span>
+    </div>
+    <button class="sync-btn" id="syncBtn" onclick="syncAllToVmix()">
+      <span class="msr sync-icon" style="font-size:14px;">sync</span> Sync
+    </button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main-content" id="mainContent">
+
+<!-- ══════════ MATCH PANEL ══════════ -->
+<div class="panel active" id="panel-match">
+
+  <!-- SCORE HERO -->
+  <div class="score-hero full-width">
+    <div class="score-hero-header">
+      <span class="score-hero-title"><span class="msr sm" style="vertical-align:-3px;">sports_soccer</span> SCORE</span>
+    </div>
+
+    <!-- Unified Scoreboard Display -->
+    <div style="padding:14px;">
+      <div class="sb-preview sb-preview-main">
+        <div class="sb-color-bar-home" id="sbHomeBar" style="background:#1a3a6b;"></div>
+        <div class="sb-color-bar-away" id="sbAwayBar" style="background:#8b0000;"></div>
+        <div class="sb-main-inner">
+          <div class="sb-team-block">
+            <div class="sb-team-logo" id="sbHomeLogo"><span class="msr">home</span></div>
+            <div class="sb-team-name" id="sbHomeName">HOME</div>
+          </div>
+          <div class="sb-center-block">
+            <div class="sb-period-label" id="sbPeriodLabel">1ST</div>
+            <div class="sb-score-row">
+              <span class="sb-score-num-big" id="sbHomeScore">0</span>
+              <span class="sb-score-sep-big">:</span>
+              <span class="sb-score-num-big" id="sbAwayScore">0</span>
+            </div>
+            <span class="sb-clock-big" id="sbClock">00:00</span>
+          </div>
+          <div class="sb-team-block away">
+            <div class="sb-team-logo" id="sbAwayLogo"><span class="msr">flight</span></div>
+            <div class="sb-team-name" id="sbAwayName">AWAY</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Adjustment Buttons (below) -->
+    <div class="score-adjust-row">
+      <div class="score-adjust-col">
+        <div class="score-adjust-label" id="homeNameDisplay">HOME</div>
+        <div class="score-btns">
+          <button class="score-adj-btn minus" onclick="adjustScore('home',-1)">−</button>
+          <button class="score-adj-btn plus" onclick="adjustScore('home',1)">+</button>
+        </div>
+      </div>
+      <div class="score-adjust-col">
+        <div class="score-adjust-label" id="awayNameDisplay">AWAY</div>
+        <div class="score-btns">
+          <button class="score-adj-btn minus" onclick="adjustScore('away',-1)">−</button>
+          <button class="score-adj-btn plus" onclick="adjustScore('away',1)">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="goal-btn full-width" id="goalBtn" onclick="confirmAction('goal')">
+    <span class="msr lg">sports_score</span> GOAL! Macro
+  </button>
+
+</div><!-- /panel-match -->
+
+<!-- ══════════ MEDIA PANEL ══════════ -->
+<div class="panel" id="panel-media">
+
+  <!-- PVW / PGM STATUS BAR — STICKY -->
+  <div class="vmix-inputs-sticky full-width">
+    <div class="vmix-inputs-header" style="margin-bottom:6px;">
+      <span class="vmix-inputs-title"><span class="msr sm" style="vertical-align:-3px;">cast</span> vMix Inputs</span>
+      <div style="flex:1;"></div>
+      <button class="icon-btn" onclick="fetchVmixState()"><span class="msr sm">refresh</span></button>
+    </div>
+    <div id="vicPgmPvwBar" class="vic-pgm-pvw-bar" style="gap:6px;">
+      <div class="pvw-side">
+        <span class="vic-pvw-label">PVW</span>
+        <span class="vic-pvw-name" id="pvwName">—</span>
+      </div>
+      <span class="vs-sep msr sm">compare_arrows</span>
+      <div class="pgm-side">
+        <span class="vic-pgm-name" id="pgmName">—</span>
+        <span class="vic-pgm-label">PGM</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- vMix INPUT CONTROL CARDS -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">devices</span></div>
+      <div class="card-header-title">Input Control</div>
+      <span class="card-header-badge" style="color:var(--accent-blue);" id="vicBadge">0</span>
+    </div>
+    <div class="card-body" style="padding:8px;">
+      <div id="vicGrid" class="vmix-input-grid">
+        <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">
+          <span class="msr lg" style="display:block;margin-bottom:8px;opacity:0.3;">cast</span>
+          Connect to vMix to load inputs
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Now Playing -->
+  <div id="nowPlayingSection" style="display:none;" class="full-width">
+    <div class="now-playing-bar">
+      <div class="playing-wave"><span></span><span></span><span></span></div>
+      <span id="nowPlayingName">—</span>
+    </div>
+  </div>
+
+  <!-- Playlist -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,230,118,0.1);"><span class="msr sm" style="color:var(--accent-green);">list_alt</span></div>
+      <div class="card-header-title">Playlist Queue</div>
+      <span class="card-header-badge" style="color:var(--accent-green);" id="plBadge">0</span>
+    </div>
+    <div class="card-body">
+      <div class="playlist-section">
+        <div class="playlist-header">
+          <span class="playlist-title"><span class="msr sm" style="vertical-align:-3px;">play_arrow</span> Queue</span>
+          <div class="playlist-controls">
+            <button class="pl-btn" id="plPlayBtn" onclick="playlistPlay()"><span class="msr sm" style="vertical-align:-3px;">play_arrow</span> Play</button>
+            <button class="pl-btn" onclick="playlistNext()"><span class="msr sm" style="vertical-align:-3px;">skip_next</span> Next</button>
+            <button class="pl-btn" onclick="playlistStop()"><span class="msr sm" style="vertical-align:-3px;">stop</span> Stop</button>
+            <button class="pl-btn" id="plLoopBtn" onclick="togglePlaylistLoop()"><span class="msr sm" style="vertical-align:-3px;">repeat</span> Loop</button>
+          </div>
+        </div>
+        <div class="playlist-queue" id="playlistQueue">
+          <div style="text-align:center;padding:10px;color:var(--text-muted);font-size:11px;">Add items from Input Control cards above</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel-media -->
+
+<!-- ══════════ SETTINGS PANEL ══════════ -->
+<div class="panel" id="panel-settings">
+
+  <!-- CLOCK + MACRO CARD -->
+  <div class="clock-card full-width">
+    <div class="clock-card-header">
+      <div class="card-header-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">schedule</span></div>
+      <div class="clock-card-title">Match Clock</div>
+    </div>
+    <div class="clock-inner">
+      <div class="clock-half-label" id="halfLabel">PERIOD 1</div>
+      <div class="clock-display stopped" id="clockDisplay">00:00</div>
+      <div style="font-size:9px;color:var(--text-muted);text-align:center;margin-top:2px;"><span class="msr sm" style="vertical-align:-3px;">schedule</span> นับเวลาจริงที่ vMix — ปิดจอมือถือได้ระหว่างแข่ง</div>
+      <div class="period-switcher" id="periodSwitcher"></div>
+      <div class="clock-controls">
+        <button class="clock-btn start-btn" onclick="clockStart()">
+          <span class="msr clock-btn-icon">play_arrow</span><span class="clock-btn-label">Start</span>
+        </button>
+        <button class="clock-btn pause-btn" onclick="clockPause()">
+          <span class="msr clock-btn-icon">pause</span><span class="clock-btn-label">Pause</span>
+        </button>
+        <button class="clock-btn reset-btn" onclick="clockReset()">
+          <span class="msr clock-btn-icon">replay</span><span class="clock-btn-label">Reset</span>
+        </button>
+      </div>
+    </div>
+    <!-- MACRO ZONE with confirm guard -->
+    <div class="macro-zone">
+      <div class="macro-zone-label">Match Macros</div>
+      <button class="start-match-btn" onclick="confirmAction('startmatch')">
+        <span class="msr">rocket_launch</span> Start Match
+      </button>
+    </div>
+  </div>
+
+  <!-- PERIOD SETTINGS -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,212,255,0.1);"><span class="msr sm" style="color:var(--accent-cyan);">tune</span></div>
+      <div class="card-header-title">Period Settings</div>
+    </div>
+    <div class="card-body">
+      <div class="field-group">
+        <div class="field-label">Number of Periods</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="period-count-btn" onclick="setPeriodCount(-1)">−</button>
+          <div class="period-count-display" id="periodCountDisplay">2</div>
+          <button class="period-count-btn" onclick="setPeriodCount(1)">+</button>
+          <span style="font-size:11px;color:var(--text-muted);">periods (2–4)</span>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Minutes per Period</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="period-count-btn" onclick="setPeriodMins(-5)">−</button>
+          <div class="period-count-display" id="periodMinsDisplay">45</div>
+          <button class="period-count-btn" onclick="setPeriodMins(5)">+</button>
+          <span style="font-size:11px;color:var(--text-muted);">min/period</span>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Clock Mode</div>
+        <div class="period-mode-row">
+          <button class="period-mode-btn active" id="modeContBtn" onclick="setClockMode('continuous',this)"><span class="msr sm" style="vertical-align:-3px;">trending_up</span> Cumulative</button>
+          <button class="period-mode-btn" id="modeResetBtn" onclick="setClockMode('reset',this)"><span class="msr sm" style="vertical-align:-3px;">replay</span> Reset Each</button>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;" id="clockModeHint">นับต่อเนื่อง: P1=0–45, P2=45–90</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPETITION SETUP -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(181,123,255,0.15);"><span class="msr sm" style="color:var(--accent-purple);">settings</span></div>
+      <div class="card-header-title">Competition Setup</div>
+    </div>
+    <div class="card-body">
+      <div style="font-size:10px;color:var(--text-muted);"><span class="msr sm" style="vertical-align:-3px;">settings</span> Title Type / Match Mode now in header <span class="msr sm" style="vertical-align:-3px;">arrow_upward</span></div>
+      <div id="flowDiagram" class="flow-diagram">
+        <div class="flow-step"><span class="msr sm flow-arrow">radio_button_checked</span><span class="flow-name">PA Screen</span></div>
+        <div class="flow-step"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Countdown.mp4</span></div>
+        <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Competition Name</div>
+        <input class="field-input" id="compName" placeholder="YRU Football League 2025" oninput="updatePreview()">
+      </div>
+      <div class="field-group" id="compLogoGroup" style="display:none;">
+        <div class="field-label">Competition Logo</div>
+        <label class="upload-area">
+          <input type="file" accept=".png,.jpg,.jpeg" onchange="handleLogoUpload(this,'compLogo')">
+          <div id="compLogoPreview" class="logo-thumb"><span class="msr lg">emoji_events</span></div>
+          <div class="upload-label">Upload PNG Logo (preview only)</div>
+        </label>
+        <div class="field-label" style="margin-top:6px;">Filename on vMix PC</div>
+        <input class="field-input" id="compLogoFilename" placeholder="comp-logo.png" style="font-family:var(--font-mono);font-size:11px;">
+        <button class="send-btn" style="margin-top:4px;" onclick="sendLogoToVmix('comp')"><span class="msr sm" style="vertical-align:-3px;">arrow_upward</span> Send Competition Logo Path</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATE -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,212,255,0.1);"><span class="msr sm" style="color:var(--accent-cyan);">calendar_month</span></div>
+      <div class="card-header-title">Match Date & Kick Off</div>
+    </div>
+    <div class="card-body">
+      <!-- Row 1: Day of week dropdown -->
+      <div class="field-group">
+        <div class="field-label">Day of Week</div>
+        <select class="field-input" id="matchDayOfWeek" onchange="updatePreview()">
+          <option value="">— Select Day —</option>
+          <option>Sunday</option><option>Monday</option><option>Tuesday</option>
+          <option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
+        </select>
+      </div>
+      <!-- Row 2: Date (text) | Month (dropdown) | Year (text) -->
+      <div class="field-row-3">
+        <div class="field-group">
+          <div class="field-label">Date</div>
+          <input class="field-input" id="matchDay" type="text" maxlength="2" placeholder="24" oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Month</div>
+          <select class="field-input" id="matchMonth" onchange="updatePreview()">
+            <option value="">Month</option>
+            <option>January</option><option>February</option><option>March</option>
+            <option>April</option><option>May</option><option>June</option>
+            <option>July</option><option>August</option><option>September</option>
+            <option>October</option><option>November</option><option>December</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Year (พ.ศ.)</div>
+          <input class="field-input" id="matchYear" type="text" maxlength="4" placeholder="2568" oninput="updatePreview()">
+        </div>
+      </div>
+      <!-- Row 3: Kick Off full width -->
+      <div class="field-group">
+        <div class="field-label">Kick Off</div>
+        <input class="field-input" id="kickOff" type="time" value="15:00" oninput="updatePreview()" style="width:100%;">
+      </div>
+      <div class="date-preview" id="datePreview">— กรอกข้อมูลวันที่ —</div>
+    </div>
+  </div>
+
+  <!-- HOME TEAM -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,230,118,0.1);"><span class="msr sm" style="color:var(--accent-green);">home</span></div>
+      <div class="card-header-title">Home Team</div>
+    </div>
+    <div class="card-body">
+      <div class="team-section">
+        <div class="team-header"><div class="team-color-dot" id="homeColorDot" style="background:#1a3a6b;"></div>Home Team</div>
+        <div class="team-body">
+          <div class="field-group">
+            <div class="field-label">Team Name</div>
+            <input class="field-input" id="homeName" placeholder="Home FC" oninput="updateTeamDisplay()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">Team Color</div>
+            <div class="color-row">
+              <input class="field-input" id="homeColorHex" value="#1a3a6b" oninput="syncColor('home')">
+              <div class="color-swatch-btn"><input type="color" id="homeColorPicker" value="#1a3a6b" oninput="syncColorFromPicker('home')"></div>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Team Logo</div>
+            <label class="upload-area">
+              <input type="file" accept=".png,.jpg,.jpeg" onchange="handleLogoUpload(this,'homeLogo')">
+              <div id="homeLogoPreview" class="logo-thumb"><span class="msr lg">home</span></div>
+              <div class="upload-label">Upload PNG logo (preview only)</div>
+            </label>
+            <div class="field-label" style="margin-top:6px;">Filename on vMix PC</div>
+            <input class="field-input" id="homeLogoFilename" placeholder="home-logo.png" style="font-family:var(--font-mono);font-size:11px;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AWAY TEAM -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(255,61,61,0.1);"><span class="msr sm" style="color:var(--accent-red);">flight</span></div>
+      <div class="card-header-title">Away Team</div>
+    </div>
+    <div class="card-body">
+      <div class="team-section">
+        <div class="team-header"><div class="team-color-dot" id="awayColorDot" style="background:#8b0000;"></div>Away Team</div>
+        <div class="team-body">
+          <div class="field-group">
+            <div class="field-label">Team Name</div>
+            <input class="field-input" id="awayName" placeholder="Away United" oninput="updateTeamDisplay()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">Team Color</div>
+            <div class="color-row">
+              <input class="field-input" id="awayColorHex" value="#8b0000" oninput="syncColor('away')">
+              <div class="color-swatch-btn"><input type="color" id="awayColorPicker" value="#8b0000" oninput="syncColorFromPicker('away')"></div>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Away Logo</div>
+            <label class="upload-area">
+              <input type="file" accept=".png,.jpg,.jpeg" onchange="handleLogoUpload(this,'awayLogo')">
+              <div id="awayLogoPreview" class="logo-thumb"><span class="msr lg">flight</span></div>
+              <div class="upload-label">Upload PNG logo (preview only)</div>
+            </label>
+            <div class="field-label" style="margin-top:6px;">Filename on vMix PC</div>
+            <input class="field-input" id="awayLogoFilename" placeholder="away-logo.png" style="font-family:var(--font-mono);font-size:11px;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMING -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(255,179,0,0.1);"><span class="msr sm" style="color:var(--accent-amber);">timer</span></div>
+      <div class="card-header-title">Timing Settings</div>
+      <span class="card-header-badge" style="color:var(--accent-amber);">ms</span>
+    </div>
+    <div class="card-body">
+      <div class="timing-row">
+        <div class="timing-label">Countdown duration</div>
+        <div style="display:flex;align-items:center;gap:4px;"><input class="timing-input" id="countdownDuration" value="7000"><span class="ms-label">ms</span></div>
+      </div>
+      <div class="timing-row">
+        <div class="timing-label">Goal! duration</div>
+        <div style="display:flex;align-items:center;gap:4px;"><input class="timing-input" id="goalDuration" value="13000"><span class="ms-label">ms</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGO FILE PATH CONFIG -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(255,179,0,0.1);"><span class="msr sm" style="color:var(--accent-amber);">folder</span></div>
+      <div class="card-header-title">Logo Folder Path</div>
+    </div>
+    <div class="card-body">
+      <div class="field-group">
+        <div class="field-label">Base Path (เปลี่ยนได้ตามเครื่องคอม)</div>
+        <input class="field-input" id="logoBasePath"
+          value="C:\Users\Leica\OneDrive - Yala Rajabhat University\Apps\เดสก์ท็อป\vMixData"
+          oninput="updateSBPreview()" style="font-family:var(--font-mono);font-size:11px;">
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);line-height:1.5;">
+        โลโก้จะถูกอ้างอิงเป็น <code style="color:var(--accent-cyan);">[Base Path]\[ชื่อไฟล์].png</code><br>
+        ระบุชื่อไฟล์ในแต่ละทีม/รายการด้านล่าง แล้วกด Send เพื่อส่ง path ไปยัง vMix
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel-settings -->
+
+<!-- ══════════ vMIX PANEL ══════════ -->
+<div class="panel" id="panel-vmix">
+
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,230,118,0.1);"><span class="msr sm" style="color:var(--accent-green);">cable</span></div>
+      <div class="card-header-title">vMix Connection</div>
+    </div>
+    <div class="card-body">
+      <div class="cors-warning">
+        <strong><span class="msr sm" style="vertical-align:-3px;">warning</span> CORS Setup Required</strong>
+        รันแอพผ่าน local server บนเครื่อง vMix:<br>
+        <code class="cors-code">python -m http.server 8080</code>
+        แล้วเปิด http://localhost:8080
+      </div>
+      <div class="field-group">
+        <div class="field-label">vMix IP Address</div>
+        <input class="field-input" id="vmixIP" value="127.0.0.1" placeholder="192.168.1.x">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Port</div>
+        <input class="field-input" id="vmixPort" value="8088" type="number">
+      </div>
+      <div class="connect-status-card">
+        <div class="connect-indicator disconnected" id="connectIndicator"><span class="msr xl">settings_input_antenna</span></div>
+        <div style="font-size:12px;color:var(--text-secondary);" id="connectSubtext">Not connected to vMix</div>
+      </div>
+      <div class="field-row">
+        <button class="connect-btn conn" onclick="connectVmix()"><span class="msr sm" style="vertical-align:-3px;">check_circle</span> Connect</button>
+        <button class="connect-btn disconn" onclick="disconnectVmix()"><span class="msr sm" style="vertical-align:-3px;">cancel</span> Disconnect</button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Auto Reconnect</span>
+        <button class="toggle on" id="autoReconnectToggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,212,255,0.1);"><span class="msr sm" style="color:var(--accent-cyan);">description</span></div>
+      <div class="card-header-title">API Log</div>
+      <button class="icon-btn" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="card-body">
+      <div class="api-log" id="apiLog">
+        <div class="log-entry"><span class="log-time">--:--:--</span><span class="log-msg info">Ready. Configure IP and connect.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(255,179,0,0.1);"><span class="msr sm" style="color:var(--accent-amber);">build</span></div>
+      <div class="card-header-title">Manual API</div>
+    </div>
+    <div class="card-body">
+      <div class="field-group">
+        <div class="field-label">Function</div>
+        <input class="field-input" id="manualFunction" placeholder="e.g. Fade, SetText, Play">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Input</div>
+        <input class="field-input" id="manualInput" placeholder="e.g. SB-LOGO.gtzip">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Value</div>
+        <input class="field-input" id="manualValue" placeholder="Optional">
+      </div>
+      <div class="field-group">
+        <div class="field-label">SelectedName</div>
+        <input class="field-input" id="manualSelectedName" placeholder="e.g. Title-Home.Text">
+      </div>
+      <button class="send-btn" onclick="sendManualAPI()"><span class="msr sm" style="vertical-align:-3px;">arrow_upward</span> Send API Request</button>
+    </div>
+  </div>
+
+</div><!-- /panel-vmix -->
+
+</div><!-- /main-content -->
+
+<!-- TAB BAR: Match | Media | Settings | vMix -->
+<nav class="tab-bar">
+  <button class="tab-btn active" id="tab-match" onclick="switchTab('match')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 00-4 20M12 2a14.5 14.5 0 014 20M2 12h20M3.3 7h17.4M3.3 17h17.4"/></svg>
+    <span class="tab-label">Match</span>
+  </button>
+  <button class="tab-btn" id="tab-media" onclick="switchTab('media')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M7 6V4M17 6V4"/></svg>
+    <span class="tab-label">Media</span>
+  </button>
+  <button class="tab-btn" id="tab-settings" onclick="switchTab('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.1 19.1l-2-2M4.9 4.9l2 2M19.1 4.9l-2 2M4.9 19.1l2-2M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+    <span class="tab-label">Settings</span>
+  </button>
+  <button class="tab-btn" id="tab-vmix" onclick="switchTab('vmix')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5L5 19M5 5v4M12 8v11M12 5v0M19 15v4M19 5v7"/><circle cx="5" cy="11" r="1.5"/><circle cx="12" cy="6.5" r="1.5"/><circle cx="19" cy="13.5" r="1.5"/></svg>
+    <span class="tab-label">vMix</span>
+  </button>
+</nav>
+
+</div><!-- /app-shell -->
+
+<!-- CONFIRM OVERLAY -->
+<div class="confirm-overlay" id="confirmOverlay" style="display:none;">
+  <div class="confirm-box">
+    <span class="msr xl" id="confirmIcon" style="color:var(--accent-amber);">help</span>
+    <div class="confirm-title" id="confirmTitle">ยืนยัน</div>
+    <div class="confirm-body" id="confirmBody">คุณแน่ใจหรือไม่?</div>
+    <div class="confirm-btns">
+      <button class="confirm-no" onclick="confirmCancel()"><span class="msr sm" style="vertical-align:-3px;">close</span> ยกเลิก</button>
+      <button class="confirm-yes" id="confirmYesBtn" onclick="confirmProceed()"><span class="msr sm" style="vertical-align:-3px;">check</span> ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════
+// STATE
+// ═══════════════════════════════
+const state = {
+  connected:false, reconnectTimer:null,
+  titleType:'logo', matchMode:'thai',
+  periodCount:2, periodMins:45, clockMode:'continuous',
+  currentPeriod:1, clockSeconds:0, clockRunning:false, clockTimer:null,
+  homeScore:0, awayScore:0,
+  homeName:'HOME', awayName:'AWAY',
+  homeColor:'#1a3a6b', awayColor:'#8b0000',
+  homeLogoData:'', awayLogoData:'',
+  mediaItems:[], nowPlaying:null,
+  playlist:[], plIndex:-1, plRunning:false, plLoop:false,
+  pendingAction:null,
+  vmixInputs:[],        // [{num, title, type, state, duration}]
+  vmixActive:null,      // PGM input number
+  vmixPreview:null,     // PVW input number
+  inputAudioOnly:{},    // {inputTitle: bool} — audio-only mode per input
+  inputPlaying:{},      // {inputTitle: bool} — playing state per input
+  inputLoop:{},         // {inputTitle: bool} — loop state per input
+};
+
+// ═══════════════════════════════
+// TABS
+// ═══════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ═══════════════════════════════
+// PERIOD SETTINGS
+// ═══════════════════════════════
+function setPeriodCount(delta) {
+  state.periodCount = Math.min(4, Math.max(2, state.periodCount + delta));
+  document.getElementById('periodCountDisplay').textContent = state.periodCount;
+  rebuildPeriodSwitcher();
+}
+
+async function setPeriodMins(delta) {
+  state.periodMins = Math.min(90, Math.max(5, state.periodMins + delta));
+  document.getElementById('periodMinsDisplay').textContent = state.periodMins;
+  updateClockModeHint();
+  await clockReset();
+}
+
+async function setClockMode(mode, btn) {
+  state.clockMode = mode;
+  document.getElementById('modeContBtn').classList.toggle('active', mode==='continuous');
+  document.getElementById('modeResetBtn').classList.toggle('active', mode==='reset');
+  updateClockModeHint();
+  await clockReset();
+}
+
+function updateClockModeHint() {
+  const m = state.periodMins;
+  const hint = state.clockMode === 'continuous'
+    ? `นับต่อเนื่อง: P1=0–${m}, P2=${m}–${m*2}${state.periodCount>2?', P3='+m*2+'–'+m*3:''}`
+    : `Reset ทุก period: แต่ละ period 0–${m} min`;
+  document.getElementById('clockModeHint').textContent = hint;
+}
+
+function getPeriodStart(p) {
+  // p is 1-indexed
+  return state.clockMode === 'continuous' ? (p-1) * state.periodMins * 60 : 0;
+}
+function getPeriodLimit(p) {
+  return state.clockMode === 'continuous' ? p * state.periodMins * 60 : state.periodMins * 60;
+}
+
+function rebuildPeriodSwitcher() {
+  const labels = ['1ST','2ND','3RD','4TH'];
+  const c = document.getElementById('periodSwitcher');
+  c.innerHTML = '';
+  for (let i=1; i<=state.periodCount; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'period-btn' + (i===state.currentPeriod?' active':'');
+    btn.textContent = labels[i-1];
+    btn.onclick = () => selectPeriod(i);
+    c.appendChild(btn);
+  }
+}
+
+async function selectPeriod(p) {
+  state.currentPeriod = p;
+  const labels = ['1ST PERIOD','2ND PERIOD','3RD PERIOD','4TH PERIOD'];
+  document.getElementById('halfLabel').textContent = labels[p-1];
+  document.getElementById('sbPeriodLabel').textContent = ['1ST','2ND','3RD','4TH'][p-1];
+  document.querySelectorAll('.period-btn').forEach((b,i)=>b.classList.toggle('active',i+1===p));
+  if (!state.clockRunning) await clockReset();
+}
+
+// ═══════════════════════════════
+// CLOCK — driven by vMix's own built-in Countdown timer (GT Title Designer
+// "Countdown" object set to Reverse/count-up mode, target field Time.Text).
+// vMix counts entirely on its own once started — it does NOT depend on the
+// phone/browser staying open. The setInterval below only refreshes the
+// LOCAL display in this app for the operator's convenience; if it stops
+// (screen lock, tab closed) the scoreboard on vMix keeps counting fine.
+// ═══════════════════════════════
+function secsToHMS(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return [h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
+}
+
+async function clockStart(startOffsetSeconds) {
+  if (state.clockRunning) return;
+  const limit = getPeriodLimit(state.currentPeriod);
+  const start = getPeriodStart(state.currentPeriod);
+  if (state.clockSeconds >= limit) { showToast('Period นี้จบแล้ว','error'); return; }
+
+  // Countdown commands ส่งไปเฉพาะ SB file ที่เลือกอยู่ (ที่ตั้งค่า Countdown object ไว้ใน GT Designer)
+  // ห้ามส่งไปทั้ง 2 ไฟล์ เพราะไฟล์ที่ไม่มี Countdown object จะไปแก้ field อื่นแทน (เช่น Title-Match.Text)
+  const sb = getSBInput();
+  const resuming = state.clockSeconds > start;
+
+  if (!resuming) {
+    await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(start)});
+    await vmixApi('SetCountdown',{Input:sb,Value:secsToHMS(limit)});
+  }
+  await vmixApi('StartCountdown',{Input:sb});
+  addLog('ok',`vMix Countdown started on ${sb} (${secsToHMS(start)} → ${secsToHMS(limit)})`);
+
+  state.clockRunning = true;
+  updateClockUI();
+  if (startOffsetSeconds) {
+    state.clockSeconds += startOffsetSeconds;
+    updateClockDisplay();
+    updateSBPreview();
+  }
+  state.clockTimer = setInterval(() => {
+    state.clockSeconds++;
+    const lim = getPeriodLimit(state.currentPeriod);
+    if (state.clockSeconds >= lim) {
+      state.clockSeconds = lim; // clamp — ไม่ให้เกิน 45:00 เด็ดขาด
+      state.clockRunning = false;
+      clearInterval(state.clockTimer);
+      document.getElementById('clockDisplay').className = 'clock-display stopped';
+      updateClockDisplay();
+      updateSBPreview();
+      showToast(`Period ${state.currentPeriod} จบ!`,'info');
+      return; // หยุดทันที ไม่ทำงานต่อ
+    }
+    updateClockDisplay();
+    updateSBPreview();
+  }, 1000);
+}
+
+async function clockPause() {
+  if (!state.clockRunning) { clockStart(); return; }
+  state.clockRunning = false;
+  clearInterval(state.clockTimer);
+  document.getElementById('clockDisplay').className = 'clock-display paused';
+  await vmixApi('SuspendCountdown',{Input:getSBInput()});
+  addLog('info','vMix Countdown paused');
+  showToast('Paused','info');
+}
+
+async function clockReset() {
+  state.clockRunning = false;
+  clearInterval(state.clockTimer);
+  state.clockSeconds = getPeriodStart(state.currentPeriod);
+  updateClockDisplay();
+  document.getElementById('clockDisplay').className = 'clock-display stopped';
+  updateSBPreview();
+  const sb = getSBInput();
+  await vmixApi('StopCountdown',{Input:sb});
+  await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(state.clockSeconds)});
+  addLog('info',`vMix Countdown reset to ${secsToHMS(state.clockSeconds)}`);
+}
+
+// Resync local display from vMix's actual current value (call after
+// reopening the app / waking the phone, so the operator sees the true time).
+function syncClockFromVmixText(timeStr) {
+  // timeStr expected as mm:ss or hh:mm:ss
+  const parts = timeStr.split(':').map(n=>parseInt(n)||0);
+  let secs = 0;
+  if (parts.length===3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
+  else if (parts.length===2) secs = parts[0]*60 + parts[1];
+  state.clockSeconds = secs;
+  updateClockDisplay();
+  updateSBPreview();
+}
+
+function updateClockDisplay() {
+  const elapsed = state.clockSeconds;
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  const str = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  document.getElementById('clockDisplay').textContent = str;
+  document.getElementById('sbClock').textContent = str;
+}
+
+function updateClockUI() {
+  document.getElementById('clockDisplay').className =
+    state.clockRunning ? 'clock-display running' : 'clock-display paused';
+}
+
+// ═══════════════════════════════════════
+// vMIX INPUT CONTROL (VIC)
+// ═══════════════════════════════════════
+
+// Icon map by vMix input type
+const VIC_ICONS = {
+  'Video':        'videocam',
+  'Audio':        'music_note',
+  'Image':        'image',
+  'Colour':       'palette',
+  'GT Title':     'title',
+  'Xaml':         'web',
+  'Browser':      'language',
+  'Capture':      'screenshot_monitor',
+  'NDI':          'cast',
+  'Stream':       'stream',
+  'Replay':       'replay',
+  'Default':      'smart_display',
+};
+
+function vicIcon(type){
+  return VIC_ICONS[type] || VIC_ICONS['Default'];
+}
+
+function renderVicGrid(){
+  const grid = document.getElementById('vicGrid');
+  const badge = document.getElementById('vicBadge');
+  const inputs = state.vmixInputs;
+  badge.textContent = inputs.length;
+
+  // Update PVW/PGM name bar
+  const pgmInput = inputs.find(i=>i.num===state.vmixActive);
+  const pvwInput = inputs.find(i=>i.num===state.vmixPreview);
+  const pgmEl = document.getElementById('pgmName');
+  const pvwEl = document.getElementById('pvwName');
+  if(pgmEl) pgmEl.textContent = pgmInput ? pgmInput.title : '—';
+  if(pvwEl) pvwEl.textContent = pvwInput ? pvwInput.title : '—';
+
+  if (!inputs.length){
+    grid.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">
+      <span class="msr lg" style="display:block;margin-bottom:8px;opacity:0.3;">cast</span>
+      Connect to vMix to load inputs
+    </div>`;
+    return;
+  }
+
+  const isMediaType = (t,title) => !!(
+    (t && ['Video','Audio'].some(m=>t.includes(m))) ||
+    (title && title.match(/\.(mp4|mp3|avi|mov|wav|aac|flac|mkv|webm)/i))
+  );
+
+  grid.innerHTML = inputs.map(inp => {
+    const isPgm = inp.num === state.vmixActive;
+    const isPvw = inp.num === state.vmixPreview;
+    const isAudioOnly = !!state.inputAudioOnly[inp.title];
+    const isPlaying   = !!state.inputPlaying[inp.title];
+    const cardClass = isPgm ? 'vmix-input-card is-pgm' : isPvw ? 'vmix-input-card is-pvw' : 'vmix-input-card';
+    const statusBadge = isPgm
+      ? `<span class="vic-status-badge pgm"><span class="msr sm" style="font-size:8px;">fiber_manual_record</span>PGM</span>`
+      : isPvw
+      ? `<span class="vic-status-badge pvw"><span class="msr sm" style="font-size:8px;">preview</span>PVW</span>`
+      : '';
+    const addPlBtn = isMediaType(inp.type, inp.title)
+      ? `<button class="vic-addpl-btn" onclick="vicAddToPlaylist('${inp.title}')" title="Add to Playlist"><span class="msr sm" style="font-size:10px;">playlist_add</span>+PL</button>`
+      : '';
+    const isLoop = !!state.inputLoop[inp.title];
+    const playingRow = isPlaying ? `
+      <div class="vic-playing-row">
+        <div class="vic-playing-indicator">
+          <div class="playing-wave" style="height:10px;"><span></span><span></span><span></span></div>
+          <span style="font-size:9px;color:var(--accent-green);">${isAudioOnly?'AUDIO ONLY':'PLAYING'}</span>
+        </div>
+      </div>` : '';
+
+    return `<div class="${cardClass}" id="vic-${inp.num}">
+      <div class="vic-meta-row">
+        <span class="vic-num">#${inp.num}</span>
+        <span class="vic-type-badge">${inp.type||'Input'}</span>
+        <span class="vic-meta-spacer"></span>
+        ${statusBadge}
+      </div>
+      <div class="vic-title-row">
+        <span class="vic-title">${inp.title}</span>
+        ${addPlBtn}
+      </div>
+      ${playingRow}
+      <div class="vic-controls">
+        <button class="vic-btn overlay" onclick="vicOverlay('${inp.title}')" title="Overlay บน PGM">
+          <span class="msr sm">layers</span><span class="vic-btn-label">Overlay</span>
+        </button>
+        <button class="vic-btn cut" onclick="vicCut('${inp.title}')" title="Cut ไปยัง PGM">
+          <span class="msr sm">flash_on</span><span class="vic-btn-label">Cut</span>
+        </button>
+        <button class="vic-btn fade-in" onclick="vicFade('${inp.title}')" title="Fade 500ms">
+          <span class="msr sm">gradient</span><span class="vic-btn-label">Fade</span>
+        </button>
+        <button class="vic-btn reset" onclick="vicReset('${inp.title}')" title="Reset ตำแหน่ง 0">
+          <span class="msr sm">restart_alt</span><span class="vic-btn-label">Reset</span>
+        </button>
+        <button class="vic-btn audio ${isAudioOnly?'active':''}" onclick="vicAudio('${inp.title}','${inp.num}')" title="เล่นเฉพาะเสียง">
+          <span class="msr sm">${isAudioOnly?'volume_up':'volume_off'}</span><span class="vic-btn-label">Audio</span>
+        </button>
+        <button class="vic-btn loop ${isLoop?'active':''}" onclick="vicLoop('${inp.title}')" title="Loop on/off">
+          <span class="msr sm">${isLoop?'repeat_on':'repeat'}</span><span class="vic-btn-label">Loop</span>
+        </button>
+        <button class="vic-btn playpause ${isPlaying?'active':''}" onclick="vicPlayPause('${inp.title}','${inp.num}')" title="Play / Pause">
+          <span class="msr sm">${isPlaying?'pause':'play_arrow'}</span><span class="vic-btn-label">${isPlaying?'Pause':'Play'}</span>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function vicAddToPlaylist(title){
+  if(state.playlist.find(p=>p.name===title)){showToast('Already in playlist','info');return;}
+  state.playlist.push({id:Date.now()+Math.random(),name:title,type:'video',volume:100,playing:false,fromVmix:true});
+  renderPlaylist();
+  showToast('+PL: '+title,'success');
+}
+
+// 1. Overlay — ซ้อนภาพบน PGM โดยไม่เปลี่ยน main output
+function vicOverlay(title){
+  vmixFire('OverlayInput1',{Input:title});
+  showToast(`Overlay → ${title}`,'info');
+  addLog('info',`Overlay: ${title}`);
+}
+
+// 2. Audio — สลับ audio-only mode
+function vicAudio(title, num){
+  const wasAudio = !!state.inputAudioOnly[title];
+  const isPlaying = !!state.inputPlaying[title];
+  if (!wasAudio) {
+    state.inputAudioOnly[title] = true;
+    if (isPlaying) {
+      vmixFire('AudioBusOn',{Input:title,Value:'A'});
+      vmixFire('AudioOn',{Input:title});
+      showToast(`Audio ON: ${title}`,'info');
+    } else {
+      showToast(`Audio mode ready — tap Play: ${title}`,'info');
+    }
+  } else {
+    state.inputAudioOnly[title] = false;
+    vmixFire('AudioBusOff',{Input:title,Value:'A'});
+    vmixFire('AudioOff',{Input:title});
+    showToast(`Audio OFF: ${title}`,'info');
+  }
+  renderVicGrid();
+}
+
+// 3. Cut — Cut ก่อนทันที แล้วค่อยตั้ง volume/audio (ลด delay สูงสุด)
+function vicCut(title){
+  vmixFire('Cut',{Input:title});           // ⚡ cut ไปก่อนเลย ไม่รอ
+  vmixFire('SetVolume',{Input:title,Value:'100'});
+  vmixFire('AudioBusOn',{Input:title,Value:'A'});
+  vmixFire('AudioOn',{Input:title});
+  state.inputPlaying[title] = true;
+  state.inputAudioOnly[title] = false;
+  showToast(`Cut → ${title}`,'info');
+  renderVicGrid();
+  setTimeout(()=>fetchVmixState(), 400);
+}
+
+// 4. Fade — Fade ก่อน แล้วค่อยตั้ง volume/audio
+function vicFade(title){
+  vmixFire('Fade',{Input:title,Duration:'500'}); // ⚡ fade ก่อนเลย
+  vmixFire('SetVolume',{Input:title,Value:'100'});
+  vmixFire('AudioBusOn',{Input:title,Value:'A'});
+  vmixFire('AudioOn',{Input:title});
+  state.inputPlaying[title] = true;
+  state.inputAudioOnly[title] = false;
+  showToast(`Fade → ${title}`,'info');
+  renderVicGrid();
+  setTimeout(()=>fetchVmixState(), 700);
+}
+
+// 5. Reset — fire-and-forget ทั้งคู่ ไม่ต้องรอ
+function vicReset(title){
+  vmixFire('Pause',{Input:title});
+  vmixFire('SetPosition',{Input:title,Value:'0'});
+  state.inputPlaying[title] = false;
+  showToast(`Reset: ${title}`,'info');
+  renderVicGrid();
+}
+
+// 6. Loop — toggle loop on/off
+function vicLoop(title){
+  const isLoop = !!state.inputLoop[title];
+  if (!isLoop) {
+    vmixFire('LoopOn',{Input:title});
+    state.inputLoop[title] = true;
+    showToast(`Loop ON: ${title}`,'info');
+  } else {
+    vmixFire('LoopOff',{Input:title});
+    state.inputLoop[title] = false;
+    showToast(`Loop OFF: ${title}`,'info');
+  }
+  renderVicGrid();
+}
+
+// 7. Play/Pause
+function vicPlayPause(title, num){
+  const isPlaying = !!state.inputPlaying[title];
+  const isAudioOnly = !!state.inputAudioOnly[title];
+  if (isPlaying) {
+    vmixFire('Pause',{Input:title});
+    if (isAudioOnly) vmixFire('AudioBusOff',{Input:title,Value:'A'});
+    state.inputPlaying[title] = false;
+    showToast(`Pause: ${title}`,'info');
+  } else {
+    if (isAudioOnly) {
+      vmixFire('Play',{Input:title});      // play ก่อน
+      vmixFire('SetVolume',{Input:title,Value:'100'});
+      vmixFire('AudioBusOn',{Input:title,Value:'A'});
+      vmixFire('AudioOn',{Input:title});
+    } else {
+      vmixFire('Play',{Input:title});
+    }
+    state.inputPlaying[title] = true;
+    showToast(`Play: ${title}`,'info');
+  }
+  renderVicGrid();
+}
+
+
+function adjustScore(team, delta) {
+  if (team==='home') {
+    state.homeScore = Math.max(0,state.homeScore+delta);
+    document.getElementById('sbHomeScore').textContent = state.homeScore;
+  } else {
+    state.awayScore = Math.max(0,state.awayScore+delta);
+    document.getElementById('sbAwayScore').textContent = state.awayScore;
+  }
+  // ส่ง Score ไปทั้ง SB-LOGO และ SB-TileName พร้อมกันเสมอ
+  for(const inp of ['SB-LOGO.gtzip','SB-TileName.gtzip']){
+    vmixFire('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)});
+    vmixFire('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)});
+  }
+}
+
+function getSBInput(){return state.titleType==='logo'?'SB-LOGO.gtzip':'SB-TileName.gtzip';}
+function getPAInput(){return state.titleType==='logo'?'PA-LOGO.gtzip':'PA-TileName.gtzip';}
+
+function getLogoFullPath(filename) {
+  const base = document.getElementById('logoBasePath').value.replace(/\\$/,'');
+  if (!filename) return '';
+  return base + '\\' + filename;
+}
+
+async function sendLogoToVmix(which) {
+  const pa = getPAInput(), sb = getSBInput();
+  let filename, fieldName, label;
+  if (which === 'comp') { filename = document.getElementById('compLogoFilename').value; fieldName = 'Logo-Match.Source'; label = 'โลโก้รายการแข่งขัน'; }
+  if (which === 'home') { filename = document.getElementById('homeLogoFilename').value; fieldName = 'Logo-Home.Source'; label = 'โลโก้ทีมเหย้า'; }
+  if (which === 'away') { filename = document.getElementById('awayLogoFilename').value; fieldName = 'Logo-Away.Source'; label = 'โลโก้ทีมเยือน'; }
+  if (!filename) { showToast('กรุณาระบุชื่อไฟล์โลโก้','error'); return; }
+  const fullPath = getLogoFullPath(filename);
+  for (const inp of [pa, sb]) {
+    await vmixApi('SetText', {Input:inp, SelectedName:fieldName, Value:fullPath});
+  }
+  showToast(`ส่ง ${label} แล้ว`,'success');
+  addLog('info', `${fieldName} → ${fullPath}`);
+}
+
+// ═══════════════════════════════
+// SB PREVIEW
+// ═══════════════════════════════
+function updateSBPreview() {
+  document.getElementById('sbHomeName').textContent = state.homeName;
+  document.getElementById('sbAwayName').textContent = state.awayName;
+  document.getElementById('sbHomeScore').textContent = state.homeScore;
+  document.getElementById('sbAwayScore').textContent = state.awayScore;
+  document.getElementById('sbHomeBar').style.background = state.homeColor;
+  document.getElementById('sbAwayBar').style.background = state.awayColor;
+  if (state.homeLogoData) document.getElementById('sbHomeLogo').innerHTML=`<img src="${state.homeLogoData}">`;
+  if (state.awayLogoData) document.getElementById('sbAwayLogo').innerHTML=`<img src="${state.awayLogoData}">`;
+}
+
+// ═══════════════════════════════
+// CONFIRM GUARD
+// ═══════════════════════════════
+const confirmConfig = {
+  goal: {
+    icon:'sports_score',
+    title:'GOAL! Macro',
+    body:'กำลังจะเล่น Goal.mp4 และ Fade กลับ Scoreboard\nยืนยันหรือไม่?',
+    yes:'ยืนยัน GOAL!',
+  },
+  startmatch: {
+    icon:'rocket_launch',
+    title:'Start Match',
+    body:'กำลังจะเริ่มการแข่งขันและเริ่มนับเวลา\nยืนยันหรือไม่?',
+    yes:'เริ่มเลย!',
+  },
+};
+
+function confirmAction(action) {
+  state.pendingAction = action;
+  const cfg = confirmConfig[action];
+  document.getElementById('confirmIcon').textContent = cfg.icon;
+  document.getElementById('confirmTitle').textContent = cfg.title;
+  document.getElementById('confirmBody').textContent = cfg.body;
+  document.getElementById('confirmYesBtn').innerHTML = `<span class="msr sm" style="vertical-align:-3px;">check</span> ${cfg.yes}`;
+  document.getElementById('confirmOverlay').style.display = 'flex';
+}
+function confirmCancel() {
+  state.pendingAction = null;
+  document.getElementById('confirmOverlay').style.display = 'none';
+}
+function confirmProceed() {
+  document.getElementById('confirmOverlay').style.display = 'none';
+  const a = state.pendingAction; state.pendingAction = null;
+  if (a==='goal') triggerGoal();
+  if (a==='startmatch') startMatch();
+}
+
+// ═══════════════════════════════
+// GOAL MACRO
+// ═══════════════════════════════
+async function triggerGoal() {
+  const btn = document.getElementById('goalBtn');
+  btn.disabled = true;
+  const sbInput = getSBInput();
+  const goalDur = parseInt(document.getElementById('goalDuration').value)||13000;
+  const GOAL_FADE_MS = 250;
+
+  // Confirmed → Cut to Goal.mp4 instantly, no waiting.
+  vmixFire('SetPosition',{Input:'Goal.mp4',Value:'0'});
+  vmixFire('Play',{Input:'Goal.mp4'});
+  vmixFire('Cut',{Input:'Goal.mp4'});
+  addLog('ok','Cut → Goal.mp4 (instant)');
+  showToast('GOAL! Macro triggered','success');
+
+  setTimeout(async()=>{
+    await vmixApi('Fade',{Input:sbInput,Duration:String(GOAL_FADE_MS)});
+    addLog('ok',`Fade(${GOAL_FADE_MS}ms) → ${sbInput}`);
+    setTimeout(async()=>{
+      await vmixApi('Pause',{Input:'Goal.mp4'});
+      await vmixApi('SetPosition',{Input:'Goal.mp4',Value:'0'});
+      addLog('info','Goal.mp4 reset');
+      btn.disabled = false;
+    }, GOAL_FADE_MS+300);
+  }, goalDur);
+}
+
+// ═══════════════════════════════
+// START MATCH
+// ═══════════════════════════════
+async function startMatch() {
+  const sbInput=getSBInput();
+  const cdDur=parseInt(document.getElementById('countdownDuration').value)||7000;
+  const PRESTART_MS = 2000; // SB will show 00:02 the instant it's cut in
+
+  if (state.matchMode==='thai') {
+    // ── ZERO-DELAY PATH: referee whistles → Cut to Countdown.mp4 NOW ──
+    // No awaits, no data sync, no fade — fire instantly.
+    vmixFire('SetPosition',{Input:'Countdown.mp4',Value:'0'});
+    vmixFire('Play',{Input:'Countdown.mp4'});
+    vmixFire('Cut',{Input:'Countdown.mp4'});
+    addLog('ok','Cut → Countdown.mp4 (instant)');
+    showToast('Countdown started!','success');
+
+    // Everything non-urgent (team names, dates, scores) syncs in the
+    // background while Countdown.mp4 is already playing on screen.
+    sendAllToVmixSilent();
+
+    // ── TIMING FIX FOR NATURAL-LOOKING TRANSITION ──
+    // The countdown starts (StartCountdown) at cdDur-PRESTART_MS — fixed,
+    // since that's what lines up with "Kick Off" appearing in Countdown.mp4.
+    // It starts from a true 00:00 (no offset injected here).
+    //
+    // We fire the Fade to SB so its 250ms window straddles the moment the
+    // clock ticks from 00:01 to 00:02 (which happens exactly 1000ms after
+    // StartCountdown — i.e. at PRESTART_MS+1000ms after cutInAt, which
+    // equals cdDur-PRESTART_MS+PRESTART_MS+1000 = cdDur+1000... simplified:
+    // the tick lands at cdDur ms from match-start since PRESTART_MS=2000
+    // already accounts for it). Viewers see 00:01 as fade begins, then it
+    // ticks to 00:02 mid-fade — a smooth change instead of a frozen 00:00
+    // jumping straight to 00:02.
+    const SB_FADE_MS = 250;
+    const cutInAt = Math.max(0, cdDur - PRESTART_MS); // unchanged — matches Kick Off in video
+    setTimeout(async()=>{
+      await selectPeriod(1);
+      await clockStart(); // vMix starts counting from a true 00:00, silently
+    }, cutInAt);
+
+    const fadeAt = Math.max(0, cdDur - SB_FADE_MS + 50); // fade window straddles the 00:01→00:02 tick
+    setTimeout(async()=>{
+      await vmixApi('Fade',{Input:sbInput,Duration:String(SB_FADE_MS)});
+      addLog('ok',`Fade(${SB_FADE_MS}ms) → ${sbInput} (clock ticking 00:01→00:02 naturally)`);
+      await vmixApi('Pause',{Input:'Countdown.mp4'});
+      await vmixApi('SetPosition',{Input:'Countdown.mp4',Value:'0'});
+      addLog('info','Countdown.mp4 reset to 00:00');
+      showToast('Match Live!','success');
+    }, fadeAt);
+
+  } else {
+    // General Mode: PA → Cut → SB instantly, clock starts pre-warmed too.
+    showToast('Starting Match...','info');
+    sendAllToVmixSilent();
+    await selectPeriod(1);
+    await clockStart(PRESTART_MS/1000);
+    // Let it run silently for PRESTART_MS before revealing SB, same trick.
+    setTimeout(()=>{
+      vmixFire('Cut',{Input:sbInput});
+      addLog('ok',`Cut → ${sbInput} (showing ~00:02 already)`);
+      vmixFire('Pause',{Input:'Countdown.mp4'});
+      vmixFire('SetPosition',{Input:'Countdown.mp4',Value:'0'});
+      showToast('Match Live!','success');
+    }, PRESTART_MS);
+  }
+}
+
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ═══════════════════════════════
+// SETUP
+// ═══════════════════════════════
+function setTitleType(type){
+  state.titleType=type;
+  document.getElementById('headerTitleType').value=type;
+  document.getElementById('compLogoGroup').style.display=type==='logo'?'':'none';
+}
+function setMatchMode(mode){
+  state.matchMode=mode;
+  document.getElementById('headerMatchMode').value=mode;
+  const f=document.getElementById('flowDiagram');
+  f.innerHTML=mode==='thai'
+    ?`<div class="flow-step"><span class="msr sm flow-arrow">radio_button_checked</span><span class="flow-name">PA Screen</span></div>
+      <div class="flow-step"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Countdown.mp4</span></div>
+      <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>`
+    :`<div class="flow-step"><span class="msr sm flow-arrow">radio_button_checked</span><span class="flow-name">PA Screen</span></div>
+      <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>`;
+}
+function updatePreview(){
+  const dow=document.getElementById('matchDayOfWeek').value;
+  const d=document.getElementById('matchDay').value;
+  const m=document.getElementById('matchMonth').value;
+  const y=document.getElementById('matchYear').value;
+  const k=document.getElementById('kickOff').value;
+  const dowPart = dow ? dow+' ' : '';
+  document.getElementById('datePreview').textContent=
+    (d&&m&&y)?`${dowPart}${d} ${m} ${y}  |  Kick Off ${k||'–'}`:'— กรอกข้อมูลวันที่ —';
+}
+function updateTeamDisplay(){
+  state.homeName=document.getElementById('homeName').value||'HOME';
+  state.awayName=document.getElementById('awayName').value||'AWAY';
+  document.getElementById('homeNameDisplay').textContent=state.homeName;
+  document.getElementById('awayNameDisplay').textContent=state.awayName;
+  updateSBPreview();
+}
+function syncColor(team){
+  const hex=document.getElementById(team+'ColorHex').value;
+  document.getElementById(team+'ColorPicker').value=hex;
+  document.getElementById(team+'ColorDot').style.background=hex;
+  state[team+'Color']=hex; updateSBPreview();
+}
+function syncColorFromPicker(team){
+  const hex=document.getElementById(team+'ColorPicker').value;
+  document.getElementById(team+'ColorHex').value=hex;
+  document.getElementById(team+'ColorDot').style.background=hex;
+  state[team+'Color']=hex; updateSBPreview();
+}
+function handleLogoUpload(input,key){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const data=e.target.result;
+    if(key==='homeLogo') state.homeLogoData=data;
+    if(key==='awayLogo') state.awayLogoData=data;
+    document.getElementById(key+'Preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:contain;">`;
+    updateSBPreview();
+  };
+  reader.readAsDataURL(file);
+}
+async function sendDateToVmix(){
+  // วันที่มีเฉพาะใน PA — ส่งไปทั้ง PA-LOGO และ PA-TileName
+  const allPA = ['PA-LOGO.gtzip','PA-TileName.gtzip'];
+  const dow=document.getElementById('matchDayOfWeek').value;
+  const d=document.getElementById('matchDay').value,m=document.getElementById('matchMonth').value;
+  const y=document.getElementById('matchYear').value,k=document.getElementById('kickOff').value;
+  for(const inp of allPA){
+    await vmixApi('SetText',{Input:inp,SelectedName:'Day.Text',Value:dow});
+    await vmixApi('SetText',{Input:inp,SelectedName:'Date.Text',Value:d});
+    await vmixApi('SetText',{Input:inp,SelectedName:'Month-Match.Text',Value:m});
+    await vmixApi('SetText',{Input:inp,SelectedName:'Year-Match.Text',Value:y});
+    await vmixApi('SetText',{Input:inp,SelectedName:'Kick-Off.Text',Value:k});
+  }
+  showToast('ส่งวันที่แล้ว','success');
+}
+async function sendTeamToVmix(team){
+  // ชื่อทีม, สีทีม, โลโก้ทีม — ส่งไปทุกไฟล์ (PA+SB ทั้ง LOGO และ TileName)
+  const allFiles = ['PA-LOGO.gtzip','PA-TileName.gtzip','SB-LOGO.gtzip','SB-TileName.gtzip'];
+  const name=document.getElementById(team+'Name').value;
+  const color=state[team+'Color'];
+  const fieldPrefix=team==='home'?'Home':'Away';
+  const filename=document.getElementById(team+'LogoFilename').value;
+  const fullPath=getLogoFullPath(filename);
+  for(const inp of allFiles){
+    await vmixApi('SetText',{Input:inp,SelectedName:`Title-${fieldPrefix}.Text`,Value:name});
+    await vmixApi('SetColor',{Input:inp,SelectedName:`${fieldPrefix}-Color.Fill.Color`,Value:color});
+    if(filename) await vmixApi('SetText',{Input:inp,SelectedName:`Logo-${fieldPrefix}.Source`,Value:fullPath});
+  }
+  showToast(`ส่งทีม ${team==='home'?'เหย้า':'เยือน'} แล้ว`,'success');
+}
+async function syncAllToVmix(){
+  const btn = document.getElementById('syncBtn');
+  btn.classList.add('syncing');
+  const oldHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="msr sync-icon">sync</span> Syncing...';
+  try {
+    await sendAllToVmixSilent();
+    showToast('Synced all data to vMix','success');
+  } catch(e) {
+    showToast('Sync failed: '+e.message,'error');
+  } finally {
+    btn.classList.remove('syncing');
+    btn.innerHTML = oldHTML;
+  }
+}
+async function sendAllToVmixSilent(){
+  const paLogo     = 'PA-LOGO.gtzip';
+  const paTileName = 'PA-TileName.gtzip';
+  const sbLogo     = 'SB-LOGO.gtzip';
+  const sbTileName = 'SB-TileName.gtzip';
+  const allPA  = [paLogo, paTileName];
+  const allSB  = [sbLogo, sbTileName];
+  const allFiles = [paLogo, paTileName, sbLogo, sbTileName];
+
+  const cn  = document.getElementById('compName').value;
+  const hn  = document.getElementById('homeName').value;
+  const an  = document.getElementById('awayName').value;
+  const dow = document.getElementById('matchDayOfWeek').value;
+  const d   = document.getElementById('matchDay').value;
+  const m   = document.getElementById('matchMonth').value;
+  const y   = document.getElementById('matchYear').value;
+  const k   = document.getElementById('kickOff').value;
+  const compLogoFile = document.getElementById('compLogoFilename').value;
+  const homeLogoFile = document.getElementById('homeLogoFilename').value;
+  const awayLogoFile = document.getElementById('awayLogoFilename').value;
+
+  addLog('info','Sync → ทุกไฟล์ gtzip...');
+
+  // ── PA-only fields → PA-LOGO + PA-TileName ──
+  for(const inp of allPA){
+    if(dow) await vmixApi('SetText',{Input:inp,SelectedName:'Day.Text',Value:dow});
+    if(d)   await vmixApi('SetText',{Input:inp,SelectedName:'Date.Text',Value:d});
+    if(m)   await vmixApi('SetText',{Input:inp,SelectedName:'Month-Match.Text',Value:m});
+    if(y)   await vmixApi('SetText',{Input:inp,SelectedName:'Year-Match.Text',Value:y});
+    if(k)   await vmixApi('SetText',{Input:inp,SelectedName:'Kick-Off.Text',Value:k});
+  }
+
+  // ── Shared fields → ทุกไฟล์ ──
+  for(const inp of allFiles){
+    addLog('info',`Sync → ${inp}`);
+    if(cn) await vmixApi('SetText',{Input:inp,SelectedName:'Title-Match.Text',Value:cn});
+    if(hn) await vmixApi('SetText',{Input:inp,SelectedName:'Title-Home.Text',Value:hn});
+    if(an) await vmixApi('SetText',{Input:inp,SelectedName:'Title-Away.Text',Value:an});
+    await vmixApi('SetColor',{Input:inp,SelectedName:'Home-Color.Fill.Color',Value:state.homeColor});
+    await vmixApi('SetColor',{Input:inp,SelectedName:'Away-Color.Fill.Color',Value:state.awayColor});
+    if(compLogoFile) await vmixApi('SetText',{Input:inp,SelectedName:'Logo-Match.Source',Value:getLogoFullPath(compLogoFile)});
+    if(homeLogoFile) await vmixApi('SetText',{Input:inp,SelectedName:'Logo-Home.Source',Value:getLogoFullPath(homeLogoFile)});
+    if(awayLogoFile) await vmixApi('SetText',{Input:inp,SelectedName:'Logo-Away.Source',Value:getLogoFullPath(awayLogoFile)});
+  }
+
+  // ── SB-only fields (Score) → SB-LOGO + SB-TileName ──
+  for(const inp of allSB){
+    await vmixApi('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)});
+    await vmixApi('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)});
+  }
+
+  addLog('ok','Sync เสร็จสิ้น');
+}
+
+// ═══════════════════════════════
+// MEDIA
+// ═══════════════════════════════
+function addMedia(input,type){
+  Array.from(input.files).forEach(file=>{
+    state.mediaItems.push({id:Date.now()+Math.random(),name:file.name,type,file,loop:false,volume:70,playing:false});
+  });
+  renderMediaList(); input.value='';
+}
+function renderMediaList(){
+  const videos=state.mediaItems.filter(m=>m.type==='video');
+  const audios=state.mediaItems.filter(m=>m.type==='audio');
+  // Badge and list elements may not exist if Media Library cards are removed
+  const vb=document.getElementById('videoBadge'); if(vb) vb.textContent=videos.length;
+  const ab=document.getElementById('audioBadge'); if(ab) ab.textContent=audios.length;
+  const vl=document.getElementById('videoList'); if(vl) renderList('videoList',videos);
+  const al=document.getElementById('audioList'); if(al) renderList('audioList',audios);
+  renderPlaylist();
+}
+function renderList(cid,items){
+  const c=document.getElementById(cid);
+  if(!c) return; // element removed from DOM
+  if(!items.length){c.innerHTML=`<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px;">No items yet</div>`;return;}
+  c.innerHTML=items.map(item=>`
+    <div class="media-item" id="mi-${item.id}" draggable="true"
+      ondragstart="dragStart(event,'${item.id}')" ondragover="dragOver(event,'${item.id}')"
+      ondrop="dragDrop(event,'${item.id}')" ondragend="dragEnd()">
+      <span class="msr sm drag-handle" title="Drag to reorder">drag_indicator</span>
+      <div class="media-icon ${item.type}"><span class="msr sm">${item.type==='video'?'videocam':'music_note'}</span></div>
+      <div class="media-info">
+        <div class="media-name">${item.name}</div>
+        <div class="media-meta">
+          <input type="range" class="vol-slider" min="0" max="100" value="${item.volume}"
+            style="background:linear-gradient(to right,var(--accent-blue) 0%,var(--accent-blue) ${item.volume}%,rgba(255,255,255,0.1) ${item.volume}%)"
+            oninput="setMediaVolume('${item.id}',this)">
+          <span>${item.volume}%</span>
+          ${item.type==='video'?`<label style="cursor:pointer;display:flex;align-items:center;gap:3px;">
+            <input type="checkbox" ${item.loop?'checked':''} onchange="toggleLoop('${item.id}',this.checked)" style="accent-color:var(--accent-cyan);"> loop
+          </label>`:''}
+        </div>
+      </div>
+      <div class="media-actions">
+        <button class="media-btn ${item.playing?'playing':''}" onclick="mediaPlay('${item.id}')" title="Play"><span class="msr sm">play_arrow</span></button>
+        ${item.type==='video'
+          ?`<button class="media-btn fade" onclick="mediaFade('${item.id}')" title="Fade In"><span class="msr sm">arrow_downward</span></button>
+            <button class="media-btn audio-only" onclick="mediaAudioOnly('${item.id}')" title="Audio Only"><span class="msr sm">volume_up</span></button>`
+          :`<button class="media-btn" onclick="mediaStop('${item.id}')" title="Stop"><span class="msr sm">stop</span></button>`}
+        <button class="media-btn" onclick="addToPlaylist('${item.id}')" title="Add to Playlist" style="color:var(--accent-green);"><span class="msr sm">playlist_add</span></button>
+        <button class="media-btn del" onclick="mediaDelete('${item.id}')" title="Delete"><span class="msr sm">close</span></button>
+      </div>
+    </div>`).join('');
+}
+
+let dragId=null;
+function dragStart(e,id){dragId=id;e.dataTransfer.effectAllowed='move';setTimeout(()=>{const el=document.getElementById('mi-'+id);if(el)el.classList.add('dragging');},0);}
+function dragOver(e,id){e.preventDefault();document.querySelectorAll('.media-item').forEach(el=>el.classList.remove('drag-over'));const el=document.getElementById('mi-'+id);if(el)el.classList.add('drag-over');}
+function dragDrop(e,targetId){
+  e.preventDefault();if(!dragId||dragId===targetId)return;
+  const fi=state.mediaItems.findIndex(m=>m.id==dragId);
+  const ti=state.mediaItems.findIndex(m=>m.id==targetId);
+  if(fi<0||ti<0)return;
+  const[moved]=state.mediaItems.splice(fi,1);
+  state.mediaItems.splice(ti,0,moved);renderMediaList();
+}
+function dragEnd(){dragId=null;document.querySelectorAll('.media-item').forEach(el=>{el.classList.remove('dragging');el.classList.remove('drag-over');});}
+
+function addToPlaylist(id){
+  const item=state.mediaItems.find(m=>m.id==id);if(!item)return;
+  if(state.playlist.find(p=>p.id==id)){showToast('Already in playlist','info');return;}
+  state.playlist.push(item);renderPlaylist();showToast(`+PL: ${item.name}`,'success');
+}
+function renderPlaylist(){
+  const c=document.getElementById('playlistQueue');
+  document.getElementById('plBadge').textContent=state.playlist.length;
+  if(!state.playlist.length){c.innerHTML=`<div style="text-align:center;padding:10px;color:var(--text-muted);font-size:11px;">Add items from library below</div>`;return;}
+  c.innerHTML=state.playlist.map((item,i)=>`
+    <div class="pl-item ${state.plRunning&&state.plIndex===i?'playing':''}">
+      <span class="pl-item-num">${i+1}</span>
+      <span class="pl-item-name"><span class="msr sm" style="vertical-align:-3px;">${item.type==='video'?'videocam':'music_note'}</span> ${item.name}</span>
+      <span class="msr sm pl-item-remove" onclick="removeFromPlaylist(${i})">close</span>
+    </div>`).join('');
+}
+function removeFromPlaylist(i){state.playlist.splice(i,1);renderPlaylist();}
+function playlistPlay(){
+  if(!state.playlist.length){showToast('Playlist ว่างเปล่า','error');return;}
+  state.plRunning=true;state.plIndex=0;
+  document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">pause</span> Playing';
+  playPlaylistItem(0);
+}
+function playPlaylistItem(idx){
+  if(idx>=state.playlist.length){
+    if(state.plLoop){state.plIndex=0;playPlaylistItem(0);}
+    else{state.plRunning=false;state.plIndex=-1;document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">play_arrow</span> Play';renderPlaylist();showToast('Playlist finished','info');}
+    return;
+  }
+  state.plIndex=idx;const item=state.playlist[idx];renderPlaylist();
+  showToast(`Playing: ${item.name}`,'info');
+  document.getElementById('nowPlayingSection').style.display='';
+  document.getElementById('nowPlayingName').textContent=item.name;
+  if(item.type==='video'){
+    vmixFire('SetVolume',{Input:item.name,Value:String(item.volume)});
+    vmixFire('Fade',{Input:item.name,Duration:'500'});vmixFire('Play',{Input:item.name});
+    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
+  } else {
+    vmixFire('SetVolume',{Input:item.name,Value:String(item.volume)});
+    vmixFire('AudioBusOn',{Input:item.name,Value:'A'});vmixFire('AudioOn',{Input:item.name});vmixFire('Play',{Input:item.name});
+    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
+  }
+}
+function playlistNext(){if(!state.plRunning)return;playPlaylistItem(state.plIndex+1);}
+function playlistStop(){
+  state.plRunning=false;state.plIndex=-1;
+  document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">play_arrow</span> Play';
+  renderPlaylist();document.getElementById('nowPlayingSection').style.display='none';
+  showToast('Playlist stopped','info');
+}
+function togglePlaylistLoop(){
+  state.plLoop=!state.plLoop;
+  const btn=document.getElementById('plLoopBtn');
+  btn.classList.toggle('loop-on',state.plLoop);
+  btn.innerHTML=state.plLoop?'<span class="msr sm" style="vertical-align:-3px;">repeat_on</span> Loop ON':'<span class="msr sm" style="vertical-align:-3px;">repeat</span> Loop';
+  showToast(state.plLoop?'Loop ON':'Loop OFF','info');
+}
+function mediaPlay(id){
+  const item=state.mediaItems.find(m=>m.id==id);if(!item)return;
+  vmixFire('SetVolume',{Input:item.name,Value:String(item.volume)});
+  if(item.loop)vmixFire('LoopOn',{Input:item.name});
+  vmixFire('PreviewInput',{Input:item.name});vmixFire('Cut',{});vmixFire('Play',{Input:item.name});
+  state.mediaItems.forEach(m=>m.playing=false);item.playing=true;
+  state.nowPlaying=item;
+  document.getElementById('nowPlayingSection').style.display='';
+  document.getElementById('nowPlayingName').textContent=item.name;
+  renderMediaList();showToast('Playing '+item.name,'info');
+}
+function mediaFade(id){
+  const item=state.mediaItems.find(m=>m.id==id);if(!item)return;
+  vmixFire('SetVolume',{Input:item.name,Value:String(item.volume)});
+  vmixFire('Fade',{Input:item.name,Duration:'500'});vmixFire('Play',{Input:item.name});
+  item.playing=true;renderMediaList();showToast('Fade → '+item.name,'info');
+}
+function mediaAudioOnly(id){
+  const item=state.mediaItems.find(m=>m.id==id);if(!item)return;
+  state.mediaItems.filter(m=>m.playing&&m.id!==id).forEach(m=>{vmixFire('AudioBusOff',{Input:m.name,Value:'A'});vmixFire('AudioOff',{Input:m.name});m.playing=false;});
+  vmixFire('SetVolume',{Input:item.name,Value:String(item.volume)});
+  vmixFire('AudioBusOn',{Input:item.name,Value:'A'});
+  vmixFire('AudioOn',{Input:item.name});
+  vmixFire('Play',{Input:item.name});
+  item.playing=true;state.nowPlaying=item;
+  document.getElementById('nowPlayingSection').style.display='';
+  document.getElementById('nowPlayingName').innerHTML='<span class="msr sm" style="vertical-align:-3px;">volume_up</span> '+item.name;
+  renderMediaList();showToast('Audio Only: '+item.name,'info');
+  addLog('info',`AudioOnly: ${item.name} → Bus A`);
+}
+function mediaStop(id){
+  const item=state.mediaItems.find(m=>m.id==id);if(!item)return;
+  vmixFire('Pause',{Input:item.name});vmixFire('AudioBusOff',{Input:item.name,Value:'A'});
+  item.playing=false;
+  if(state.nowPlaying?.id==id){state.nowPlaying=null;document.getElementById('nowPlayingSection').style.display='none';}
+  renderMediaList();
+}
+function mediaDelete(id){
+  state.mediaItems=state.mediaItems.filter(m=>m.id!=id);
+  state.playlist=state.playlist.filter(m=>m.id!=id);renderMediaList();
+}
+function setMediaVolume(id,el){
+  const val=parseInt(el.value);
+  el.style.background=`linear-gradient(to right,var(--accent-blue) 0%,var(--accent-blue) ${val}%,rgba(255,255,255,0.1) ${val}%)`;
+  const item=state.mediaItems.find(m=>m.id==id);if(!item)return;
+  item.volume=val;el.nextElementSibling.textContent=val+'%';
+  if(item.playing)vmixFire('SetVolume',{Input:item.name,Value:String(val)});
+}
+function toggleLoop(id,val){
+  const item=state.mediaItems.find(m=>m.id==id);if(!item)return;
+  item.loop=val;vmixApi(val?'LoopOn':'LoopOff',{Input:item.name});
+}
+
+// ═══════════════════════════════
+// vMIX API
+// ═══════════════════════════════
+// vmixFire — fire-and-forget, ไม่ await, ไม่บล็อก UI
+// ใช้กับทุกคำสั่งควบคุม (Cut, Fade, Play, Volume ฯลฯ) ที่ไม่ต้องการผลตอบกลับ
+function vmixFire(func, params={}){
+  const ip=document.getElementById('vmixIP').value||'127.0.0.1';
+  const port=document.getElementById('vmixPort').value||'8088';
+  let url=`http://${ip}:${port}/api/?Function=${encodeURIComponent(func)}`;
+  for(const[k,v]of Object.entries(params)){if(v!==undefined&&v!=='')url+=`&${k}=${encodeURIComponent(v)}`;}
+  addLog('info',`→ ${func}${params.Input?' ['+params.Input+']':''}${params.Value?' ='+params.Value:''}`);
+  fetch(url,{mode:'no-cors',method:'GET'}).catch(()=>{setConnected(false);});
+}
+
+async function vmixApi(func,params={}){
+  const ip=document.getElementById('vmixIP').value||'127.0.0.1';
+  const port=document.getElementById('vmixPort').value||'8088';
+  let url=`http://${ip}:${port}/api/?Function=${encodeURIComponent(func)}`;
+  for(const[k,v]of Object.entries(params)){if(v!==undefined&&v!=='')url+=`&${k}=${encodeURIComponent(v)}`;}
+  addLog('info',`→ ${func}${params.Input?' ['+params.Input+']':''}${params.Value?' ='+params.Value:''}`);
+  try{
+    await fetch(url,{mode:'no-cors',method:'GET'});
+    if(!state.connected)setConnected(true);
+    return true;
+  }catch(err){addLog('err',`Error: ${err.message}`);setConnected(false);return false;}
+}
+
+async function fetchVmixState(){
+  const ip=document.getElementById('vmixIP').value||'127.0.0.1';
+  const port=document.getElementById('vmixPort').value||'8088';
+  // ไม่ log ทุก poll เพื่อลด noise — log เฉพาะตอนยังไม่ connected
+  if(!state.connected) addLog('info','Fetching vMix XML...');
+  try{
+    const resp=await fetch(`http://${ip}:${port}/api/`,{mode:'cors'});
+    if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
+    const text=await resp.text();
+    parseVmixXML(text);
+    if(!state.connected) setConnected(true);  // อัปเดต UI เฉพาะตอน state เปลี่ยน
+    else state.connected=true;                // ยืนยัน connected ไม่ trigger side effects
+  }catch(e){addLog('err','XML: '+e.message);}
+}
+
+function parseVmixXML(xmlText){
+  try{
+    const doc=new DOMParser().parseFromString(xmlText,'text/xml');
+    const inputs=doc.querySelectorAll('input');
+    const activeNum=doc.querySelector('active')?.textContent;
+    const previewNum=doc.querySelector('preview')?.textContent;
+    const scroll=document.getElementById('vmixInputsScroll');
+    if(!inputs.length){
+      if(scroll) scroll.innerHTML='<div class="vmix-chip normal"><span style="font-size:10px;color:var(--text-muted);">No inputs found</span></div>';
+      return;
+    }
+
+    // ── CLOCK SYNC ──
+    // ดึงค่า Time.Text จาก SB input ที่กำลังใช้งานอยู่ใน vMix
+    // เพื่อ sync ตัวเลขในแอพกลับมาตรง หลังเปิดจอมือถือหรือ reconnect
+    if (state.clockRunning) {
+      const sbInputName = getSBInput();
+      inputs.forEach(inp=>{
+        const title = inp.getAttribute('title') || '';
+        if (title === sbInputName || title.startsWith(sbInputName.replace('.gtzip',''))) {
+          const timeNode = inp.querySelector('text[name="Time.Text"]')
+                        || inp.querySelector('[name="Time.Text"]');
+          if (timeNode && timeNode.textContent.trim()) {
+            const timeStr = timeNode.textContent.trim();
+            syncClockFromVmixText(timeStr);
+            addLog('info', `Clock synced from vMix: ${timeStr}`);
+          }
+        }
+      });
+    }
+
+    // ── INPUT CHIPS + STORE STATE ──
+    state.vmixActive  = activeNum;
+    state.vmixPreview = previewNum;
+    state.vmixInputs  = [];
+    let html='';
+    inputs.forEach(inp=>{
+      const num=inp.getAttribute('number');
+      const title=inp.getAttribute('title')||inp.textContent.trim().split('\n')[0].trim();
+      const type=inp.getAttribute('type')||'';
+      const inputState=inp.getAttribute('state')||'';
+      // Store in state for vicGrid
+      state.vmixInputs.push({num, title, type, state:inputState});
+      // Track playing state from vMix XML
+      if(inputState==='Running') state.inputPlaying[title]=true;
+      else if(inputState==='Paused'||inputState==='Completed') state.inputPlaying[title]=false;
+
+      const isPgm=num===activeNum;const isPvw=num===previewNum;
+      const cls=isPgm?'pgm':isPvw?'pvw':'normal';
+      html+=`<div class="vmix-chip ${cls}" onclick="vmixChipClick('${title}')">
+        ${isPgm||isPvw?`<span class="vmix-chip-dot"></span>`:''}
+        <span class="vmix-chip-num">${num}</span>
+        <span>${title}</span>
+      </div>`;
+    });
+    if(scroll) scroll.innerHTML=html;
+    // Re-render input control cards
+    renderVicGrid();
+    // Log เฉพาะตอนจำนวน input เปลี่ยน ไม่ log ทุก poll
+    if(state.vmixInputs.length !== (state._lastInputCount||0)){
+      addLog('ok',`${inputs.length} inputs`);
+      state._lastInputCount = state.vmixInputs.length;
+    }
+  }catch(e){addLog('err','XML parse: '+e.message);}
+}
+
+// ═══════════════════════════════════════════════════
+// IMPORT FROM VMIX — ดึงข้อมูลทั้งหมดจาก vMix XML
+// มาอัปเดตฟอร์มในแอพตอน connect ครั้งแรก
+// ═══════════════════════════════════════════════════
+function importFromVmix(doc){
+  try{
+    const inputs = doc.querySelectorAll('input');
+    if(!inputs.length) return;
+
+    // Helper: ดึงค่า text field จาก GT Title input node
+    const getField = (inp, name) => {
+      const node = inp.querySelector(`text[name="${name}"]`)
+                || inp.querySelector(`[name="${name}"]`);
+      return node ? node.textContent.trim() : null;
+    };
+
+    // Helper: ดึงค่า color field
+    const getColor = (inp, name) => {
+      const node = inp.querySelector(`color[name="${name}"]`)
+                || inp.querySelector(`fill[name="${name}"]`);
+      return node ? node.textContent.trim() : null;
+    };
+
+    // Helper: แปลงสี vMix (ARGB หรือ hex) → CSS hex (#rrggbb)
+    const toHex = (raw) => {
+      if(!raw) return null;
+      raw = raw.trim().replace(/^#/,'');
+      if(raw.length===8) raw = raw.slice(2); // AARRGGBB → RRGGBB
+      if(raw.length===6) return '#'+raw.toLowerCase();
+      return null;
+    };
+
+    // ค้นหา SB input ทั้งสองแบบ (LOGO และ TileName) พร้อม PA
+    const sbLogo    = Array.from(inputs).find(i=>i.getAttribute('title')==='SB-LOGO.gtzip');
+    const sbTitle   = Array.from(inputs).find(i=>i.getAttribute('title')==='SB-TileName.gtzip');
+    const paLogo    = Array.from(inputs).find(i=>i.getAttribute('title')==='PA-LOGO.gtzip');
+    const paTitle   = Array.from(inputs).find(i=>i.getAttribute('title')==='PA-TileName.gtzip');
+
+    // ใช้ SB ก่อน (มีข้อมูลมากกว่า PA), fallback ไป PA ถ้า SB ไม่มี
+    const sb = sbLogo || sbTitle;
+    const pa = paLogo || paTitle;
+
+    if(!sb && !pa){
+      addLog('info','Import: ไม่พบไฟล์ SB/PA gtzip ใน vMix');
+      return;
+    }
+
+    let imported = 0;
+
+    // ── Score ──
+    const homeScore = sb ? getField(sb,'Score-Home.Text') : null;
+    const awayScore = sb ? getField(sb,'Score-Away.Text') : null;
+    if(homeScore !== null && homeScore !== ''){
+      const n = parseInt(homeScore);
+      if(!isNaN(n)){
+        state.homeScore = n;
+        document.getElementById('sbHomeScore').textContent = n;
+        imported++;
+      }
+    }
+    if(awayScore !== null && awayScore !== ''){
+      const n = parseInt(awayScore);
+      if(!isNaN(n)){
+        state.awayScore = n;
+        document.getElementById('sbAwayScore').textContent = n;
+        imported++;
+      }
+    }
+
+    // ── ชื่อทีม ──
+    const src = sb || pa;
+    const homeName = getField(src,'Title-Home.Text');
+    const awayName = getField(src,'Title-Away.Text');
+    if(homeName){
+      document.getElementById('homeName').value = homeName;
+      state.homeName = homeName;
+      document.getElementById('homeNameDisplay').textContent = homeName;
+      imported++;
+    }
+    if(awayName){
+      document.getElementById('awayName').value = awayName;
+      state.awayName = awayName;
+      document.getElementById('awayNameDisplay').textContent = awayName;
+      imported++;
+    }
+
+    // ── สีทีม ──
+    const rawHomeColor = getColor(src,'Home-Color.Fill.Color')
+                       || getField(src,'Home-Color.Fill.Color');
+    const rawAwayColor = getColor(src,'Away-Color.Fill.Color')
+                       || getField(src,'Away-Color.Fill.Color');
+    const homeHex = toHex(rawHomeColor);
+    const awayHex = toHex(rawAwayColor);
+    if(homeHex){
+      state.homeColor = homeHex;
+      document.getElementById('homeColorHex').value = homeHex;
+      document.getElementById('homeColorPicker').value = homeHex;
+      document.getElementById('homeColorDot').style.background = homeHex;
+      document.getElementById('sbHomeBar').style.background = homeHex;
+      imported++;
+    }
+    if(awayHex){
+      state.awayColor = awayHex;
+      document.getElementById('awayColorHex').value = awayHex;
+      document.getElementById('awayColorPicker').value = awayHex;
+      document.getElementById('awayColorDot').style.background = awayHex;
+      document.getElementById('sbAwayBar').style.background = awayHex;
+      imported++;
+    }
+
+    // ── ชื่อรายการแข่งขัน ──
+    const compName = getField(src,'Title-Match.Text');
+    if(compName){
+      document.getElementById('compName').value = compName;
+      imported++;
+    }
+
+    // ── วันที่ (จาก PA ซึ่งมี field เหล่านี้) ──
+    const paSrc = pa || sb;
+    if(paSrc){
+      const day   = getField(paSrc,'Date.Text');
+      const month = getField(paSrc,'Month-Match.Text');
+      const year  = getField(paSrc,'Year-Match.Text');
+      const ko    = getField(paSrc,'Kick-Off.Text');
+      const dow   = getField(paSrc,'Day.Text');
+
+      if(day)   { document.getElementById('matchDay').value = day;     imported++; }
+      if(year)  { document.getElementById('matchYear').value = year;   imported++; }
+      if(ko)    { document.getElementById('kickOff').value = ko;       imported++; }
+      // Month — match ค่าใน <select> option
+      if(month){
+        const sel = document.getElementById('matchMonth');
+        const opts = Array.from(sel.options);
+        const match = opts.find(o=>o.value===month||o.textContent.toLowerCase().includes(month.toLowerCase()));
+        if(match){ sel.value = match.value; imported++; }
+      }
+      // Day of Week
+      if(dow){
+        const sel = document.getElementById('matchDayOfWeek');
+        if(sel){
+          const opts = Array.from(sel.options);
+          const match = opts.find(o=>o.value===dow||o.textContent.includes(dow));
+          if(match) sel.value = match.value;
+        }
+      }
+    }
+
+    // ── Path โลโก้ (เฉพาะ filename จาก full path) ──
+    const homeLogo = getField(src,'Logo-Home.Source');
+    const awayLogo = getField(src,'Logo-Away.Source');
+    const compLogo = getField(src,'Logo-Match.Source');
+    if(homeLogo){
+      const fname = homeLogo.split('\\').pop().split('/').pop();
+      document.getElementById('homeLogoFilename').value = fname;
+      imported++;
+    }
+    if(awayLogo){
+      const fname = awayLogo.split('\\').pop().split('/').pop();
+      document.getElementById('awayLogoFilename').value = fname;
+      imported++;
+    }
+    if(compLogo){
+      const fname = compLogo.split('\\').pop().split('/').pop();
+      document.getElementById('compLogoFilename').value = fname;
+      imported++;
+    }
+
+    // อัปเดต Scoreboard preview ด้วย
+    updateSBPreview();
+    updatePreview();
+    updateTeamDisplay();
+
+    if(imported > 0){
+      addLog('ok',`Import: ดึงข้อมูลจาก vMix สำเร็จ ${imported} ฟิลด์`);
+      showToast(`ดึงข้อมูลจาก vMix สำเร็จ (${imported} fields)`,'success');
+    } else {
+      addLog('info','Import: ไม่พบข้อมูลในฟิลด์ GT Title (อาจยังไม่ได้ตั้งค่า)');
+    }
+  }catch(e){
+    addLog('err','Import error: '+e.message);
+  }
+}
+
+
+function vmixChipClick(title){
+  // Quick cut to this input
+  vmixFire('PreviewInput',{Input:title});
+  showToast(`PVW → ${title}`,'info');
+}
+
+async function connectVmix(){
+  const ip=document.getElementById('vmixIP').value;
+  const port=document.getElementById('vmixPort').value;
+  addLog('info',`Connecting ${ip}:${port}...`);
+  try{
+    const resp=await fetch(`http://${ip}:${port}/api/`,{mode:'cors'});
+    const text=await resp.text();
+    // Parse XML once — reuse for both parseVmixXML and importFromVmix
+    const doc = new DOMParser().parseFromString(text,'text/xml');
+    parseVmixXML(text);
+    setConnected(true);
+    showToast('Connected','success');
+    // ดึงข้อมูลทั้งหมดจาก vMix มาอัปเดตแอพอัตโนมัติเมื่อ connect สำเร็จ
+    importFromVmix(doc);
+  }catch(e){
+    try{
+      await fetch(`http://${ip}:${port}/api/?Function=Fake`,{mode:'no-cors'});
+      setConnected(true);
+      showToast('vMix reachable','success');
+      addLog('info','no-cors mode: XML unavailable — import skipped');
+    }
+    catch(e2){addLog('err','Cannot reach vMix: '+e2.message);showToast('Cannot connect','error');setConnected(false);}
+  }
+}
+function disconnectVmix(){setConnected(false);if(state.reconnectTimer)clearTimeout(state.reconnectTimer);state.reconnectTimer=null;showToast('Disconnected','info');}
+function setConnected(val){
+  state.connected=val;
+  const badge=document.getElementById('statusBadge');
+  const ind=document.getElementById('connectIndicator');
+  const sub=document.getElementById('connectSubtext');
+  const txt=document.getElementById('statusText');
+  if(val){
+    badge.className='vmix-status-badge connected';txt.textContent='LIVE';
+    ind.className='connect-indicator connected';ind.innerHTML='<span class="msr xl">settings_input_antenna</span>';
+    sub.textContent='Connected to vMix';addLog('ok','Connected');
+    // ไม่เรียก fetchVmixState() ที่นี่ — connectVmix() จัดการ fetch เองหลัง connect
+    // การเรียกที่นี่จะทำให้เกิด loop: fetchVmixState→setConnected→fetchVmixState→...
+  }else{
+    badge.className='vmix-status-badge disconnected';txt.textContent='OFFLINE';
+    ind.className='connect-indicator disconnected';ind.innerHTML='<span class="msr xl">settings_input_antenna</span>';
+    sub.textContent='Not connected to vMix';
+    if(document.getElementById('autoReconnectToggle').classList.contains('on'))scheduleReconnect();
+  }
+}
+function scheduleReconnect(){
+  if(state.reconnectTimer)return;
+  state.reconnectTimer=setTimeout(()=>{state.reconnectTimer=null;if(!state.connected){addLog('info','Auto-reconnecting...');connectVmix();}},5000);
+}
+async function sendManualAPI(){
+  const fn=document.getElementById('manualFunction').value.trim();
+  if(!fn){showToast('กรุณาระบุ Function','error');return;}
+  const params={};
+  const inp=document.getElementById('manualInput').value.trim();
+  const val=document.getElementById('manualValue').value.trim();
+  const sn=document.getElementById('manualSelectedName').value.trim();
+  if(inp)params.Input=inp;if(val)params.Value=val;if(sn)params.SelectedName=sn;
+  await vmixApi(fn,params);showToast(`${fn} sent`,'success');
+}
+
+// LOG
+function addLog(type,msg){
+  const log=document.getElementById('apiLog');
+  const now=new Date();
+  const t=[now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  const entry=document.createElement('div');entry.className='log-entry';
+  entry.innerHTML=`<span class="log-time">${t}</span><span class="log-msg ${type}">${msg}</span>`;
+  log.appendChild(entry);log.scrollTop=log.scrollHeight;
+  while(log.children.length>60)log.removeChild(log.firstChild);
+}
+function clearLog(){document.getElementById('apiLog').innerHTML='';addLog('info','Log cleared');}
+
+// TOAST
+let toastTimer=null;
+function showToast(msg,type='info'){
+  const toast=document.getElementById('toast');
+  const icons={success:'check_circle',error:'cancel',info:'info'};
+  toast.innerHTML=`<span class="msr sm">${icons[type]||'info'}</span> ${msg}`;
+  toast.className=`toast show ${type}`;
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toast.classList.remove('show'),2500);
+}
+
+// AUTO REFRESH
+setInterval(()=>{if(state.connected)fetchVmixState();},10000);
+
+// WAKE-UP SYNC — เมื่อเปิดจอมือถือกลับมา (จากปิดจอหรือสลับแอพ)
+// ให้ดึงเวลาจริงจาก vMix XML ทันที เพื่อ sync ตัวเลขในแอพกลับมาตรง
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState === 'visible' && state.connected && state.clockRunning) {
+    addLog('info','Screen woke up — syncing clock from vMix...');
+    fetchVmixState();
+  }
+});
+
+// INIT
+rebuildPeriodSwitcher();
+updateClockModeHint();
+updatePreview();
+updateSBPreview();
+setTitleType('logo');
+setMatchMode('thai');
+</script>
+</body>
+</html>
