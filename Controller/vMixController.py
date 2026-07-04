@@ -28,6 +28,7 @@ Dependencies (see build-exe.bat):
   pip install tkinterdnd2 pystray pillow
 """
 
+import datetime
 import json
 import os
 import re
@@ -61,7 +62,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.1"
+APP_VERSION = "4.2"
 HTTP_PORT   = 8080
 
 BASE_DIR   = r"C:\vMixData" if os.name == "nt" else os.path.expanduser("~/vMixData")
@@ -292,15 +293,51 @@ def get_adapter_ips():
 # ═════════════════════════════════════════════════════════════════════════════
 # GUI WIDGET HELPERS (flat dark widgets on plain tk — no ttk theming pain)
 # ═════════════════════════════════════════════════════════════════════════════
+def rounded_rect(canvas, x1, y1, x2, y2, r=14, **kwargs):
+    r = max(0, min(r, (x2 - x1) / 2, (y2 - y1) / 2))
+    points = [
+        x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r,
+        x2, y2 - r, x2, y2, x2 - r, y2, x1 + r, y2,
+        x1, y2, x1, y2 - r, x1, y1 + r, x1, y1,
+    ]
+    return canvas.create_polygon(points, smooth=True, **kwargs)
+
+
 def card(parent, title, icon="", accent=C["blue"]):
-    outer = tk.Frame(parent, bg=C["card"], highlightthickness=1,
-                     highlightbackground=C["border"])
-    hdr = tk.Frame(outer, bg=C["card"])
+    """Card with rounded corners matching the web app's design. Plain Tk
+    widgets are always square, so the background is hand-drawn on a Canvas
+    and the real content sits in a Frame layered on top of it."""
+    outer = tk.Frame(parent, bg=C["bg"])
+    canvas = tk.Canvas(outer, bg=C["bg"], highlightthickness=0)
+    canvas.pack(fill="both", expand=True)
+
+    inner = tk.Frame(canvas, bg=C["card"])
+    win = canvas.create_window(0, 0, window=inner, anchor="nw")
+
+    hdr = tk.Frame(inner, bg=C["card"])
     hdr.pack(fill="x", padx=12, pady=(10, 4))
     tk.Label(hdr, text=(icon + "  " if icon else "") + title, bg=C["card"],
              fg=accent, font=FONT_H, anchor="w").pack(side="left")
-    body = tk.Frame(outer, bg=C["card"])
+    body = tk.Frame(inner, bg=C["card"])
     body.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+    shape = {"id": None}
+
+    def redraw(event=None):
+        canvas.update_idletasks()
+        w, h = canvas.winfo_width(), inner.winfo_reqheight()
+        if w < 2 or h < 2:
+            return
+        canvas.itemconfigure(win, width=w)
+        canvas.configure(height=h)
+        if shape["id"]:
+            canvas.delete(shape["id"])
+        shape["id"] = rounded_rect(canvas, 1, 1, w - 1, h - 1, r=14,
+                                    fill=C["card"], outline=C["border"])
+        canvas.tag_lower(shape["id"])
+
+    inner.bind("<Configure>", redraw)
+    canvas.bind("<Configure>", redraw)
     return outer, body
 
 
@@ -523,6 +560,12 @@ class App:
         flat_button(rowb, "🌐 เปิดเว็บแอพ", lambda: webbrowser.open(f"http://127.0.0.1:{HTTP_PORT}"),
                     fg=C["green"]).pack(side="left", padx=6)
         label(b1, f"Data folder: {BASE_DIR}", fg=C["muted"]).pack(anchor="w", pady=(6, 0))
+        prow = tk.Frame(b1, bg=C["card"]); prow.pack(fill="x", pady=(8, 0))
+        flat_button(prow, "📂 โหลดรายการแข่งขัน", self.load_competition, fg=C["cyan"]).pack(side="left")
+        flat_button(prow, "💾 บันทึกเป็นรายการใหม่", self.save_competition_as, fg=C["text2"]).pack(side="left", padx=6)
+        self.profile_status_var = tk.StringVar(value="ยังไม่ได้โหลดรายการแข่งขัน")
+        tk.Label(b1, textvariable=self.profile_status_var, bg=C["card"], fg=C["muted"],
+                 font=FONT_SM, anchor="w", justify="left", wraplength=520).pack(anchor="w", pady=(4, 0))
 
         # ── 2) SETUP MODE ─────────────────────────────────────────────────────
         c2, b2 = card(self.col, "Setup Mode", "⚙", C["blue"])
@@ -654,6 +697,58 @@ class App:
                 var.set(val)
         if self._save_job:  # cancel saves triggered by the sets above
             self.root.after_cancel(self._save_job); self._save_job = None
+
+    # ── competition profiles (load/save a whole match setup + logos folder) ───
+    def load_competition(self):
+        folder = filedialog.askdirectory(title="เลือกโฟลเดอร์รายการแข่งขัน (ต้องมี config.json)")
+        if not folder:
+            return
+        cfg_path = os.path.join(folder, "config.json")
+        if not os.path.exists(cfg_path):
+            messagebox.showerror(APP_NAME, "ไม่พบ config.json ในโฟลเดอร์นี้")
+            return
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            messagebox.showerror(APP_NAME, f"อ่านไฟล์ config ไม่ได้:\n{e}")
+            return
+        src_logos = os.path.join(folder, "logos")
+        if os.path.isdir(src_logos):
+            os.makedirs(LOGO_DIR, exist_ok=True)
+            for fn in os.listdir(src_logos):
+                try:
+                    shutil.copy2(os.path.join(src_logos, fn), os.path.join(LOGO_DIR, fn))
+                except Exception:
+                    pass
+        CONFIG.update(data)
+        self._load_from_config()
+        self._paint_swatch("home"); self._paint_swatch("away")
+        name = data.get("compName") or os.path.basename(folder)
+        self.profile_status_var.set(
+            f"รายการปัจจุบัน: {name} · โหลดเมื่อ {datetime.datetime.now():%d/%m/%Y %H:%M} · {folder}")
+
+    def save_competition_as(self):
+        folder = filedialog.askdirectory(title="เลือกตำแหน่งที่จะบันทึกรายการแข่งขัน (จะสร้างโฟลเดอร์ย่อยให้)")
+        if not folder:
+            return
+        name = (self.v["compName"].get() or "Competition").strip()
+        safe_name = re.sub(r'[\\/:*?"<>|]', "_", name) or "Competition"
+        dest = os.path.join(folder, safe_name)
+        try:
+            os.makedirs(dest, exist_ok=True)
+            with open(os.path.join(dest, "config.json"), "w", encoding="utf-8") as f:
+                json.dump(CONFIG.get(), f, ensure_ascii=False, indent=2)
+            dest_logos = os.path.join(dest, "logos")
+            os.makedirs(dest_logos, exist_ok=True)
+            if os.path.isdir(LOGO_DIR):
+                for fn in os.listdir(LOGO_DIR):
+                    shutil.copy2(os.path.join(LOGO_DIR, fn), os.path.join(dest_logos, fn))
+        except Exception as e:
+            messagebox.showerror(APP_NAME, f"บันทึกไม่สำเร็จ:\n{e}")
+            return
+        self.profile_status_var.set(
+            f"รายการปัจจุบัน: {name} · บันทึกเมื่อ {datetime.datetime.now():%d/%m/%Y %H:%M} · {dest}")
 
     # ── connection URLs ──────────────────────────────────────────────────────
     def refresh_urls(self):
