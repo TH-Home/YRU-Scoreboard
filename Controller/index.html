@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>vMix Scoreboard Controller — YRU Stadium</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-25..0&display=block');
 :root {
   --bg-void:#040608;--bg-card:rgba(13,20,32,0.88);--glass-border:rgba(255,255,255,0.07);
@@ -43,7 +43,7 @@
 .msr.lg{font-size:28px;}
 .msr.xl{font-size:36px;}
 html{font-size:14px;-webkit-text-size-adjust:100%;}
-body{font-family:'Inter',sans-serif;background:var(--bg-void);color:var(--text-primary);min-height:100dvh;overflow-x:hidden;
+body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-primary);min-height:100dvh;overflow-x:hidden;
   background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(59,158,255,0.08) 0%,transparent 60%),radial-gradient(ellipse 40% 30% at 80% 80%,rgba(0,212,255,0.04) 0%,transparent 50%);}
 .app-shell{display:flex;flex-direction:column;height:100dvh;width:100%;}
 
@@ -981,13 +981,13 @@ select.field-input{cursor:pointer;
     </div>
     <div class="card-body">
 
-      <div style="font-size:10px;color:var(--text-muted);"><span class="msr sm" style="vertical-align:-3px;">computer</span> ตั้งค่าหลักที่โปรแกรม vMixController บนคอมพิวเตอร์ — หน้านี้ไว้แก้ด่วนบนมือถือ/ไอแพด (บันทึกกลับให้อัตโนมัติ)</div>
+      <div style="font-size:12px;color:var(--text-muted);"><span class="msr sm" style="vertical-align:-3px;">computer</span> ตั้งค่าหลักที่โปรแกรม vMixController บนคอมพิวเตอร์ — หน้านี้ไว้แก้ด่วนบนมือถือ/ไอแพด (บันทึกกลับให้อัตโนมัติ)</div>
       <div class="field-group" id="compNameGroup">
         <div class="field-label">Competition Name</div>
         <input class="field-input" id="compName" placeholder="YRU Football League 2025" oninput="updatePreview();updateSBPreview()">
       </div>
       <div class="field-group" id="compLogoGroup" style="display:none;">
-        <div class="field-label">Competition Logo <span style="color:var(--text-muted);">(อัปโหลดไฟล์ที่โปรแกรม vMixController — แก้ชื่อไฟล์ด่วนได้ที่นี่)</span></div>
+        <div class="field-label">Competition Logo <span style="color:var(--text-muted);font-size:12px;text-transform:none;letter-spacing:normal;">(อัปโหลดไฟล์ที่โปรแกรม vMixController — แก้ชื่อไฟล์ด่วนได้ที่นี่)</span></div>
         <div style="display:flex;gap:10px;align-items:center;">
           <div id="compLogoPreview" class="logo-thumb"><span class="msr lg">emoji_events</span></div>
           <input class="field-input" id="compLogoFilename" placeholder="comp-logo.png" oninput="updateSBPreview()" style="font-family:var(--font-mono);font-size:11px;flex:1;">
@@ -1010,7 +1010,7 @@ select.field-input{cursor:pointer;
             </div>
           </div>
           <div class="field-group">
-            <div class="field-label">Team Logo <span style="color:var(--text-muted);">(อัปโหลดที่โปรแกรม vMixController)</span></div>
+            <div class="field-label">Team Logo <span style="color:var(--text-muted);font-size:12px;text-transform:none;letter-spacing:normal;">(อัปโหลดที่โปรแกรม vMixController)</span></div>
             <div style="display:flex;gap:10px;align-items:center;">
               <div id="homeLogoPreview" class="logo-thumb"><span class="msr lg">home</span></div>
               <input class="field-input" id="homeLogoFilename" placeholder="home-logo.png" oninput="updateSBPreview()" style="font-family:var(--font-mono);font-size:11px;flex:1;">
@@ -1035,7 +1035,7 @@ select.field-input{cursor:pointer;
             </div>
           </div>
           <div class="field-group">
-            <div class="field-label">Away Logo <span style="color:var(--text-muted);">(อัปโหลดที่โปรแกรม vMixController)</span></div>
+            <div class="field-label">Away Logo <span style="color:var(--text-muted);font-size:12px;text-transform:none;letter-spacing:normal;">(อัปโหลดที่โปรแกรม vMixController)</span></div>
             <div style="display:flex;gap:10px;align-items:center;">
               <div id="awayLogoPreview" class="logo-thumb"><span class="msr lg">flight</span></div>
               <input class="field-input" id="awayLogoFilename" placeholder="away-logo.png" oninput="updateSBPreview()" style="font-family:var(--font-mono);font-size:11px;flex:1;">
@@ -1133,7 +1133,7 @@ select.field-input{cursor:pointer;
           <div class="field-label">Port</div>
           <input class="field-input" id="vmixPort" value="8088" type="number">
         </div>
-        <div style="font-size:10px;color:var(--text-muted);line-height:1.5;">
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">
           <span class="msr sm" style="vertical-align:-3px;font-size:12px;">info</span>
           ปกติไม่ต้องแก้ — IP ตั้งอัตโนมัติตามที่อยู่ที่ใช้เปิดหน้าเว็บนี้
         </div>

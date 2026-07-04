@@ -6,6 +6,7 @@ REM  Files needed in this folder:
 REM    - vMixController.py
 REM    - index.html        (the web app; bundled into the exe,
 REM                         auto-copied to C:\vMixData on first run)
+REM    - fonts\Prompt-Regular.ttf, fonts\Prompt-Bold.ttf
 REM ============================================================
 
 echo [1/3] Installing dependencies...
@@ -20,6 +21,7 @@ python -m PyInstaller --noconfirm --onefile --windowed ^
   --collect-all tkcalendar ^
   --collect-all babel ^
   --add-data "index.html;." ^
+  --add-data "fonts;fonts" ^
   vMixController.py
 if errorlevel 1 goto :err
 

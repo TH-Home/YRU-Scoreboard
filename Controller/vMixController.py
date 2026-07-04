@@ -69,7 +69,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.3.0"
+APP_VERSION = "4.4.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -158,11 +158,30 @@ C = {
     "input":     "#0a101d",
 }
 
-FONT      = ("Segoe UI", 10)
-FONT_SM   = ("Segoe UI", 9)
-FONT_BOLD = ("Segoe UI", 10, "bold")
-FONT_H    = ("Segoe UI", 11, "bold")
+FONT_FAMILY = "Prompt"        # registered at startup via register_fonts(); falls back to a system
+                              # default automatically if that fails, so no separate fallback needed
+FONT      = (FONT_FAMILY, 10)
+FONT_SM   = (FONT_FAMILY, 9)
+FONT_BOLD = (FONT_FAMILY, 10, "bold")
+FONT_H    = (FONT_FAMILY, 11, "bold")
 FONT_MONO = ("Consolas", 10)
+
+
+def register_fonts():
+    """Load the bundled Prompt TTFs for this process only (no admin rights,
+    no system-wide install needed) so Tkinter can reference the family."""
+    if os.name != "nt":
+        return
+    fonts_dir = os.path.join(getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__))), "fonts")
+    try:
+        from ctypes import windll, create_unicode_buffer
+        FR_PRIVATE = 0x10
+        for fname in ("Prompt-Regular.ttf", "Prompt-Bold.ttf"):
+            path = os.path.join(fonts_dir, fname)
+            if os.path.exists(path):
+                windll.gdi32.AddFontResourceExW(create_unicode_buffer(path), FR_PRIVATE, 0)
+    except Exception:
+        pass
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -628,13 +647,20 @@ class App:
         r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Match Date", width=12).pack(side="left")
         if HAS_CAL:
-            self.date_picker = DateEntry(r, width=14, background=C["blue"], foreground="white",
-                                         bordercolor=C["border"], headersbackground=C["card2"],
-                                         normalbackground=C["input"], normalforeground=C["text"],
-                                         weekendbackground=C["input"], weekendforeground=C["text2"],
-                                         othermonthbackground=C["card"], othermonthforeground=C["muted"],
-                                         selectbackground=C["blue"], font=FONT, locale="en_US",
-                                         date_pattern="dd/mm/yyyy")
+            self.date_picker = DateEntry(r, width=14, font=FONT, locale="en_US",
+                                         date_pattern="dd/mm/yyyy", firstweekday="sunday",
+                                         showweeknumbers=False,
+                                         # minimal chrome like the Windows 11 calendar flyout --
+                                         # flat header (no solid accent bar), accent color reserved
+                                         # for the selected-day highlight only
+                                         background=C["card2"], foreground=C["text"],
+                                         bordercolor=C["border"],
+                                         headersbackground=C["card2"], headersforeground=C["muted"],
+                                         normalbackground=C["card2"], normalforeground=C["text"],
+                                         weekendbackground=C["card2"], weekendforeground=C["text2"],
+                                         othermonthbackground=C["card2"], othermonthforeground=C["muted"],
+                                         othermonthwebackground=C["card2"], othermonthweforeground=C["muted"],
+                                         selectbackground=C["blue"], selectforeground="white")
             self.date_picker.pack(side="left")
             self.date_picker.bind("<<DateEntrySelected>>", lambda e: self._on_date_picked())
             label(r, "  (เลือกจากปฏิทิน กันลงวันผิด)", fg=C["muted"]).pack(side="left")
@@ -913,6 +939,7 @@ def ensure_dirs():
 
 
 def main():
+    register_fonts()
     ensure_dirs()
     try:
         start_http_server()
