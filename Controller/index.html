@@ -1,0 +1,2935 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>vMix Scoreboard Controller — YRU Stadium</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-25..0&display=block');
+:root {
+  --bg-void:#040608;--bg-card:rgba(13,20,32,0.88);--glass-border:rgba(255,255,255,0.07);
+  --glass-shine:rgba(255,255,255,0.04);--accent-blue:#3b9eff;--accent-cyan:#00d4ff;
+  --accent-green:#00e676;--accent-amber:#ffb300;--accent-red:#ff3d3d;--accent-purple:#b57bff;
+  --text-primary:#f0f4ff;--text-secondary:#8a9bc8;--text-muted:#4a5568;
+  --glow-blue:0 0 20px rgba(59,158,255,0.3);--glow-green:0 0 20px rgba(0,230,118,0.3);
+  --radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:20px;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-digital:'Bebas Neue','JetBrains Mono',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+
+/* UNIFIED ICON SYSTEM — Google Material Symbols Rounded, single-color, same direction everywhere */
+.msr{
+  font-family:'Material Symbols Rounded';
+  font-weight:normal;
+  font-style:normal;
+  font-size:20px;
+  line-height:1;
+  letter-spacing:normal;
+  text-transform:none;
+  display:inline-block;
+  white-space:nowrap;
+  word-wrap:normal;
+  direction:ltr;
+  -webkit-font-feature-settings:'liga';
+  -webkit-font-smoothing:antialiased;
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+  vertical-align:middle;
+  color:currentColor;
+}
+.msr.fill{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
+.msr.sm{font-size:16px;}
+.msr.lg{font-size:28px;}
+.msr.xl{font-size:36px;}
+html{font-size:14px;-webkit-text-size-adjust:100%;}
+body{font-family:'Inter',sans-serif;background:var(--bg-void);color:var(--text-primary);min-height:100dvh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(59,158,255,0.08) 0%,transparent 60%),radial-gradient(ellipse 40% 30% at 80% 80%,rgba(0,212,255,0.04) 0%,transparent 50%);}
+.app-shell{display:flex;flex-direction:column;height:100dvh;width:100%;}
+
+/* HEADER */
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;
+  background:rgba(8,12,18,0.97);border-bottom:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:sticky;top:0;z-index:100;flex-shrink:0;
+  gap:8px;flex-wrap:nowrap;min-height:0;}
+.header-logo{display:flex;align-items:center;gap:8px;min-width:0;flex-shrink:1;}
+.header-logo-icon{width:28px;height:28px;background:linear-gradient(135deg,var(--accent-blue),var(--accent-cyan));
+  border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:var(--glow-blue);flex-shrink:0;}
+.header-text{min-width:0;overflow:hidden;}
+.header-title{font-size:13px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.header-sub{font-size:10px;color:var(--text-secondary);font-family:var(--font-mono);font-weight:400;}
+.header-controls{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;flex-shrink:0;}
+.ftb-btn{display:flex;align-items:center;gap:3px;padding:4px 8px;border-radius:12px;
+  border:1px solid rgba(255,61,61,0.45);background:rgba(255,61,61,0.06);color:var(--accent-red);
+  font-size:10px;font-weight:800;font-family:inherit;cursor:pointer;transition:all 0.15s;flex-shrink:0;}
+.ftb-btn:active{transform:scale(0.93);}
+.ftb-btn.active{background:var(--accent-red);color:#fff;border-color:var(--accent-red);
+  animation:ftbPulse 0.9s ease-in-out infinite;}
+@keyframes ftbPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,61,0.6);}50%{box-shadow:0 0 0 5px rgba(255,61,61,0);}}
+@media(max-width:600px){.ftb-txt{display:none;}.ftb-btn{padding:4px 6px;}}
+.vmix-status-badge{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;
+  border:1px solid var(--glass-border);background:var(--glass-shine);cursor:pointer;transition:all 0.2s;font-size:10px;font-weight:600;white-space:nowrap;}
+.sync-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;
+  border:1px solid rgba(59,158,255,0.4);background:rgba(59,158,255,0.08);color:var(--accent-blue);
+  font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.mode-badge{padding:4px 10px;border-radius:20px;border:1px solid var(--glass-border);
+  background:rgba(255,255,255,0.04);color:var(--text-secondary);font-family:inherit;font-size:9px;
+  font-weight:700;white-space:nowrap;letter-spacing:0.3px;}
+.sync-btn:active{transform:scale(0.93);background:rgba(59,158,255,0.18);}
+.sync-btn.syncing{pointer-events:none;opacity:0.7;}
+.sync-btn.syncing .sync-icon{animation:spin 0.7s linear infinite;}
+.sync-icon{font-size:13px;display:inline-block;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.vmix-status-badge.connected{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.vmix-status-badge.disconnected{border-color:rgba(255,61,61,0.4);color:var(--accent-red);}
+.vmix-status-badge.reconnecting{border-color:rgba(255,179,0,0.5);color:var(--accent-amber);background:rgba(255,179,0,0.08);}
+.vmix-status-badge.reconnecting .status-dot{animation:pulseDot 0.7s infinite;}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.vmix-status-badge.connected .status-dot{animation:pulseDot 1.5s infinite;}
+.vmix-status-badge.disconnected .status-dot{animation:pulseDot 2.5s infinite;opacity:0.6;}
+@keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor;}50%{opacity:0.6;box-shadow:0 0 0 4px transparent;}}
+/* Portrait (narrow): hide title text, show logo icon only — all in one row */
+@media(max-width:600px){
+  .header-text{display:none;}
+  .app-header{flex-wrap:nowrap;}
+}
+/* Landscape: restore title text */
+@media(min-width:601px){
+  .header-text{display:block;}
+  .app-header{flex-wrap:nowrap;}
+}
+
+/* TAB BAR — order: Match | Media | Settings | vMix */
+.tab-bar{display:flex;background:rgba(8,12,18,0.98);border-top:1px solid var(--glass-border);
+  position:sticky;bottom:0;z-index:100;padding:2px 4px calc(6px + env(safe-area-inset-bottom,0px));gap:2px;flex-shrink:0;}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:6px 4px;border:none;background:transparent;color:var(--text-muted);
+  cursor:pointer;border-radius:var(--radius-md);transition:all 0.2s;font-family:inherit;min-height:52px;}
+.tab-btn:active{transform:scale(0.92);}
+.tab-btn.active{color:var(--accent-blue);background:rgba(59,158,255,0.1);}
+.tab-btn svg{width:20px;height:20px;flex-shrink:0;}
+.tab-label{font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;line-height:1;}
+/* แนวนอน: ไอคอน+ชื่อ บรรทัดเดียว */
+@media(min-width:601px){
+  .tab-bar{padding:2px 4px calc(3px + env(safe-area-inset-bottom,0px));}
+  .tab-btn{flex-direction:row;gap:5px;min-height:36px;padding:5px 6px;}
+  .tab-btn svg{width:15px;height:15px;}
+  .tab-label{font-size:9px;}
+}
+
+/* MAIN */
+.main-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px;scroll-behavior:smooth;}
+.main-content::-webkit-scrollbar{width:3px;}
+.main-content::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:2px;}
+.panel{display:none;}
+.panel.active{display:flex;flex-direction:column;gap:12px;}
+@media(min-width:768px){
+  .main-content{padding:16px 24px;}
+  .panel.active{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+  .panel.active .full-width{grid-column:1/-1;}
+}
+@media(min-width:1024px){.panel.active{grid-template-columns:1fr 1fr 1fr;}}
+
+/* Pin the vMix Inputs (PVW/PGM) card to the top of the scroll area, tight under the app header */
+.vic-card{position:sticky;top:-12px;z-index:40;
+  margin:-12px -12px 0;border-radius:0 0 var(--radius-lg) var(--radius-lg);
+  background:#0b1220;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 6px 16px -6px rgba(0,0,0,0.6);}
+.vic-card .card-header{border-bottom:none;}
+/* ── แถวเสียง (บนสุดของการ์ด) — กว้างเท่าฝั่ง badge PGM ชิดขวา ── */
+.vic-volume-row{display:flex;align-items:center;gap:8px;padding:8px 14px 0;margin-left:auto;width:52%;}
+.vic-vol-val{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);width:24px;text-align:right;flex-shrink:0;}
+/* ── slider ร่วม (seek + volume) ── */
+.tp-range{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:22px;background:transparent;cursor:pointer;}
+.tp-range::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:rgba(255,255,255,0.12);}
+.tp-range::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--accent-blue);margin-top:-5.5px;box-shadow:0 0 6px rgba(59,158,255,0.6);border:2px solid #fff2;}
+.tp-range::-moz-range-track{height:5px;border-radius:3px;background:rgba(255,255,255,0.12);}
+.tp-range::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent-blue);border:none;}
+.vol-range::-webkit-slider-thumb{background:var(--accent-cyan);box-shadow:0 0 6px rgba(0,212,255,0.6);}
+/* ── Transport bar ── */
+.vic-transport{display:flex;flex-wrap:wrap;align-items:center;padding:2px 14px 10px;column-gap:14px;row-gap:4px;}
+.tp-elapsed,.tp-remain{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;}
+.tp-remain.blink{animation:tpBlink 1s steps(1,end) infinite;font-weight:800;}
+@keyframes tpBlink{0%,49.9%{color:var(--accent-red);}50%,100%{color:#fff;}}
+.tp-btn{display:flex;align-items:center;justify-content:center;width:38px;height:32px;flex-shrink:0;
+  border-radius:var(--radius-sm);border:1px solid var(--glass-border);background:rgba(255,255,255,0.03);
+  color:var(--text-secondary);cursor:pointer;transition:all 0.15s;}
+.tp-btn:active{transform:scale(0.92);}
+.tp-btn.tp-play{color:var(--accent-green);border-color:rgba(0,230,118,0.3);}
+/* ── Slideshow bar (Photos/PowerPoint/Image Sequence) ── */
+.vic-slides{display:flex;flex-wrap:wrap;align-items:center;padding:2px 14px 10px;column-gap:10px;row-gap:8px;}
+.vic-slides .tp-btn.active{color:var(--accent-cyan);border-color:rgba(0,212,255,0.4);background:rgba(0,212,255,0.08);}
+/* track แบบ section — เส้นคั่นทุกช่วงสไลด์ (--seg ตั้งจาก JS ตามจำนวนสไลด์) */
+.sl-seek::-webkit-slider-runnable-track{
+  background:repeating-linear-gradient(90deg,
+    rgba(255,255,255,0.14) 0,
+    rgba(255,255,255,0.14) calc(var(--seg,100%) - 2px),
+    #06090e calc(var(--seg,100%) - 2px),
+    #06090e var(--seg,100%));}
+.sl-seek::-moz-range-track{
+  background:repeating-linear-gradient(90deg,
+    rgba(255,255,255,0.14) 0,
+    rgba(255,255,255,0.14) calc(var(--seg,100%) - 2px),
+    #06090e calc(var(--seg,100%) - 2px),
+    #06090e var(--seg,100%));}
+/* แนวตั้ง: แถว 1 = Reset·Loop·Play เต็มแถว / แถว 2 = Prev·Seek·Next เต็มจอ */
+@media(max-width:600px){
+  .vic-slides .sl-reset{order:1;} .vic-slides .sl-loop{order:2;} .vic-slides .sl-play{order:3;}
+  .vic-slides .sl-reset,.vic-slides .sl-loop,.vic-slides .sl-play{flex:1 0 calc(33.333% - 7px);}
+  .vic-slides .sl-prev{order:4;} .vic-slides .sl-seek{order:5;flex:1;} .vic-slides .sl-next{order:6;}
+}
+/* แนวนอน: บรรทัดเดียว Reset·Prev·Seek·Next·Loop·Play เต็มความกว้าง */
+@media(min-width:601px){
+  .vic-slides{flex-wrap:nowrap;}
+  .vic-slides .sl-reset{order:1;} .vic-slides .sl-prev{order:2;} .vic-slides .sl-seek{order:3;flex:1;}
+  .vic-slides .sl-next{order:4;} .vic-slides .sl-loop{order:5;} .vic-slides .sl-play{order:6;}
+}
+/* แนวตั้ง: บรรทัด 1 = Elapsed ซ้าย / Remaining ขวา, บรรทัด 2 = Reset · seek · Play (มี gap กันกดพลาด) */
+@media(max-width:600px){
+  .tp-elapsed{order:1;flex:0 0 calc(50% - 7px);}
+  .tp-remain{order:2;flex:0 0 calc(50% - 7px);text-align:right;}
+  .vic-transport>.tp-btn:first-of-type{order:3;}
+  .tp-seek{order:4;}
+  .tp-play{order:5;}
+}
+/* แนวนอน: บรรทัดเดียว Reset · Elapsed · seek · Remaining · Play + ซ่อนป้ายชื่อการ์ด */
+@media(min-width:601px){
+  .vic-transport{flex-wrap:nowrap;column-gap:10px;}
+  .vic-transport>.tp-btn:first-of-type{order:1;}
+  .tp-elapsed{order:2;flex:0 0 auto;}
+  .tp-seek{order:3;}
+  .tp-remain{order:4;flex:0 0 auto;text-align:right;}
+  .tp-play{order:5;}
+  .vic-card-header .vic-card-title,.vic-card-header .vic-card-icon{display:none;}
+  .vic-volume-row{width:40%;padding-top:8px;}
+}
+@media(min-width:768px){
+  .vic-card{top:-16px;margin:-16px -24px 0;}
+}
+
+/* CARD */
+.card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-lg);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;}
+.card-header{display:flex;align-items:center;padding:12px 14px 10px;border-bottom:1px solid var(--glass-border);gap:8px;}
+.card-header-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.card-header-title{font-size:12px;font-weight:700;letter-spacing:0.3px;flex:1;}
+.card-header-badge{font-size:10px;font-family:var(--font-mono);padding:2px 7px;border-radius:10px;border:1px solid currentColor;opacity:0.7;}
+.card-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+
+/* SCORE HERO */
+.score-hero{background:linear-gradient(135deg,rgba(13,20,32,0.92),rgba(8,14,24,0.97));
+  border:1px solid var(--glass-border);border-radius:var(--radius-xl);position:relative;overflow:hidden;}
+.score-hero::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(59,158,255,0.07) 0%,transparent 60%);pointer-events:none;}
+.score-hero-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid var(--glass-border);}
+.score-hero-title{font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.5px;}
+
+/* UNIFIED SCOREBOARD DISPLAY (replaces old duplicated score+preview) */
+.sb-preview-main{position:relative;border-radius:var(--radius-lg);overflow:hidden;
+  border:1px solid var(--glass-border);background:#000;min-height:140px;}
+.sb-main-inner{display:flex;align-items:center;justify-content:space-between;width:100%;height:100%;
+  min-height:140px;background:linear-gradient(90deg,rgba(13,20,40,0.95),rgba(8,14,28,0.98));padding:16px 18px;gap:8px;}
+.sb-main-inner .sb-team-block{flex-direction:column;gap:8px;flex:0 0 auto;}
+.sb-main-inner .sb-team-block.away{flex-direction:column;}
+.sb-main-inner .sb-team-logo{width:48px;height:48px;font-size:24px;border-radius:8px;}
+.sb-main-inner .sb-team-name{font-size:14px;max-width:110px;letter-spacing:0.5px;}
+.sb-center-block{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.sb-comp-name{text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--text-secondary);
+  padding:6px 40px 5px;margin:0 4px;border-bottom:1px solid rgba(255,255,255,0.06);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;min-height:26px;}
+.sb-comp-name img{height:22px;max-width:60%;object-fit:contain;display:block;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,0.6));}
+@media(max-height:450px){ /* จอแนวนอนเตี้ย — บีบแถบให้ต่ำลงอีก */
+  .sb-comp-name{min-height:20px;padding:3px 40px 3px;}
+  .sb-comp-name img{height:16px;}
+}
+.sb-period-label{font-family:var(--font-mono);font-size:12px;font-weight:800;color:rgba(59,158,255,0.85);
+  letter-spacing:2px;text-transform:uppercase;}
+.sb-score-row{display:flex;align-items:center;gap:10px;}
+/* ── FLIP-CLOCK TILES (classic Solari-style) ─────────────────
+   แผ่นเข้ม มุมมน เส้นแบ่งกลางแนวนอน + ไฮไลต์ครึ่งบน เหมือนแผ่น flip จริง */
+.flip-tile{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#1c1f26 0%,#15181e 49.5%,#0c0e12 50.5%,#111318 100%);
+  border:1px solid rgba(255,255,255,0.09);border-radius:10px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 6px rgba(0,0,0,0.5),
+             0 4px 12px -4px rgba(0,0,0,0.7);
+  overflow:hidden;}
+.flip-tile::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;
+  background:rgba(0,0,0,0.75);box-shadow:0 1px 0 rgba(255,255,255,0.05);pointer-events:none;}
+.flip-tile::before{content:'';position:absolute;left:0;right:0;top:0;height:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0));pointer-events:none;}
+.sb-score-num-big{font-family:var(--font-digital);font-size:clamp(52px,14vw,80px);font-weight:400;
+  color:#fff;line-height:1;min-width:0.95em;padding:8px 14px 2px;letter-spacing:1px;
+  text-shadow:0 2px 8px rgba(0,0,0,0.8);}
+.sb-score-sep-big{font-family:var(--font-digital);font-size:clamp(30px,8vw,44px);font-weight:400;color:rgba(255,255,255,0.35);}
+.sb-clock-big{font-family:var(--font-digital);font-size:clamp(22px,6vw,30px);font-weight:400;
+  color:#fff;letter-spacing:3px;margin-top:6px;padding:4px 14px 0;line-height:1.1;
+  text-shadow:0 1px 5px rgba(0,0,0,0.8);}
+.sb-color-bar-home{position:absolute;left:0;top:0;bottom:0;width:4px;z-index:2;}
+.sb-color-bar-away{position:absolute;right:0;top:0;bottom:0;width:4px;z-index:2;}
+
+/* Score adjust buttons — moved below the scoreboard display */
+.score-adjust-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 16px;}
+.score-adjust-col{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.score-adjust-label{font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:1px;
+  text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;}
+.score-btns{display:flex;gap:8px;}
+.score-adj-btn{width:52px;height:52px;border-radius:var(--radius-md);border:1px solid var(--glass-border);
+  background:var(--glass-shine);font-size:22px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:all 0.12s;display:flex;align-items:center;justify-content:center;}
+.score-adj-btn.plus{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.score-adj-btn.minus{border-color:rgba(255,61,61,0.3);color:var(--accent-red);}
+.score-adj-btn:active{transform:scale(0.85);}
+
+/* Shared team block / logo styles used by both main scoreboard and (legacy) refs */
+.sb-team-block{display:flex;align-items:center;gap:6px;flex:1;min-width:0;}
+.sb-team-block.away{flex-direction:row-reverse;}
+.sb-team-logo{width:28px;height:28px;border-radius:4px;flex-shrink:0;background:rgba(255,255,255,0.08);
+  display:flex;align-items:center;justify-content:center;font-size:14px;overflow:hidden;}
+.sb-team-logo img{width:100%;height:100%;object-fit:contain;}
+.sb-team-name{font-size:10px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70px;}
+
+/* CLOCK CARD IN SETTINGS */
+.clock-card{background:linear-gradient(135deg,rgba(13,20,32,0.92),rgba(8,14,24,0.97));
+  border:1px solid var(--glass-border);border-radius:var(--radius-xl);overflow:hidden;}
+.clock-card-header{display:flex;align-items:center;padding:12px 14px 10px;border-bottom:1px solid var(--glass-border);gap:8px;}
+.clock-card-title{font-size:12px;font-weight:700;flex:1;}
+.clock-inner{padding:18px 16px 14px;display:flex;flex-direction:column;align-items:center;position:relative;}
+.clock-inner::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(59,158,255,0.07) 0%,transparent 60%);pointer-events:none;}
+.clock-half-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent-blue);margin-bottom:2px;}
+.clock-display{font-family:var(--font-digital);font-size:clamp(56px,15vw,84px);font-weight:400;
+  letter-spacing:4px;color:var(--text-primary);line-height:1;user-select:none;
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  padding:10px 22px 4px;border-radius:12px;overflow:hidden;
+  background:linear-gradient(180deg,#1c1f26 0%,#15181e 49.5%,#0c0e12 50.5%,#111318 100%);
+  border:1px solid rgba(255,255,255,0.09);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 6px rgba(0,0,0,0.5),
+             0 4px 12px -4px rgba(0,0,0,0.7);
+  transition:color 0.3s, border-color 0.3s;}
+.clock-display::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;
+  background:rgba(0,0,0,0.75);box-shadow:0 1px 0 rgba(255,255,255,0.05);pointer-events:none;}
+.clock-display::before{content:'';position:absolute;left:0;right:0;top:0;height:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0));pointer-events:none;}
+.clock-display.running{color:#fff;border-color:rgba(59,158,255,0.45);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 6px rgba(0,0,0,0.5),
+             0 0 24px -4px rgba(59,158,255,0.45);}
+.clock-display.paused{color:var(--accent-amber);border-color:rgba(255,179,0,0.4);}
+.clock-display.stopped{color:var(--text-secondary);}
+.period-switcher{display:flex;gap:5px;width:100%;margin-top:8px;flex-wrap:wrap;}
+.period-btn{flex:1;min-width:0;padding:6px 4px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  background:transparent;color:var(--text-muted);font-size:10px;font-weight:700;
+  font-family:inherit;cursor:pointer;transition:all 0.15s;text-align:center;white-space:nowrap;}
+.period-btn.active{border-color:rgba(59,158,255,0.5);color:var(--accent-blue);background:rgba(59,158,255,0.1);}
+.period-btn:active{transform:scale(0.93);}
+.clock-controls{display:flex;gap:8px;margin-top:12px;width:100%;}
+.clock-btn{flex:1;padding:10px 8px;border:1px solid var(--glass-border);border-radius:var(--radius-md);
+  background:var(--glass-shine);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.clock-btn:active{transform:scale(0.93);}
+.clock-btn.start-btn{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.clock-btn.start-btn:active{background:rgba(0,230,118,0.12);}
+.clock-btn.pause-btn{border-color:rgba(255,179,0,0.4);color:var(--accent-amber);}
+.clock-btn.pause-btn:active{background:rgba(255,179,0,0.12);}
+.clock-btn.reset-btn{border-color:rgba(255,61,61,0.3);color:var(--accent-red);}
+.clock-btn.reset-btn:active{background:rgba(255,61,61,0.1);}
+.clock-btn-icon{font-size:16px;line-height:1;}
+.clock-btn-label{font-size:9px;letter-spacing:1px;}
+
+/* MACRO BUTTONS INSIDE CLOCK CARD — with confirmation guard */
+/* ลิ้นชัก Period Settings ใน Match Clock card */
+.clock-drawer{border-top:1px solid var(--glass-border);border-radius:0;background:transparent;}
+.clock-inner .start-match-btn{width:100%;}
+/* จัดกลางทุกส่วนใน Period Settings */
+.period-settings-inner{align-items:center;text-align:center;}
+.period-settings-inner .field-group{align-items:center;width:100%;}
+.period-ctrl-row{display:flex;align-items:center;gap:10px;justify-content:center;}
+.period-settings-inner .period-mode-row{justify-content:center;}
+/* จัดกลางช่องกรอก/ตัวเลือกทั้งการ์ด (ใช้กับ Match Date & Kick Off) */
+.center-fields .field-label{text-align:center;}
+.center-fields .field-group{align-items:center;}
+.center-fields .field-input{text-align:center;text-align-last:center;}
+.center-fields select.field-input{padding-right:28px;padding-left:28px;}
+.goal-btn{width:100%;padding:14px;border-radius:var(--radius-lg);border:1px solid rgba(255,179,0,0.4);
+  background:linear-gradient(135deg,rgba(255,179,0,0.08),rgba(255,120,0,0.05));color:var(--accent-amber);
+  font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.15s;text-transform:uppercase;}
+.goal-btn:active{transform:scale(0.97);background:rgba(255,179,0,0.15);}
+.goal-btn:disabled{opacity:0.4;pointer-events:none;}
+.start-match-btn{width:100%;padding:13px;border-radius:var(--radius-lg);border:1px solid rgba(59,158,255,0.45);
+  background:linear-gradient(135deg,rgba(59,158,255,0.15),rgba(0,212,255,0.08));color:var(--accent-blue);
+  font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:1px;
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.15s;text-transform:uppercase;}
+.start-match-btn:active{transform:scale(0.97);box-shadow:var(--glow-blue);}
+/* Confirm overlay */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);}
+.confirm-box{background:rgba(13,20,32,0.98);border:1px solid var(--glass-border);border-radius:var(--radius-xl);
+  padding:24px 20px;max-width:320px;width:100%;display:flex;flex-direction:column;gap:14px;text-align:center;}
+.confirm-title{font-size:16px;font-weight:800;color:var(--accent-amber);}
+.confirm-body{font-size:13px;color:var(--text-secondary);line-height:1.5;}
+.confirm-btns{display:flex;gap:10px;}
+.confirm-yes{flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid rgba(0,230,118,0.4);
+  background:rgba(0,230,118,0.1);color:var(--accent-green);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.confirm-no{flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid var(--glass-border);
+  background:transparent;color:var(--text-secondary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.confirm-yes:active,.confirm-no:active{transform:scale(0.97);}
+
+/* SEND BTN */
+.send-btn{width:100%;padding:11px;border-radius:var(--radius-md);border:1px solid rgba(59,158,255,0.35);
+  background:linear-gradient(135deg,rgba(59,158,255,0.12),rgba(0,212,255,0.06));color:var(--accent-blue);
+  font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;}
+.send-btn:active{transform:scale(0.97);}
+
+/* FORMS */
+.field-group{display:flex;flex-direction:column;gap:4px;}
+.field-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-secondary);}
+.field-input{width:100%;padding:9px 11px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);
+  border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;
+  outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
+.field-input:focus{border-color:var(--accent-blue);}
+.field-input::placeholder{color:var(--text-muted);}
+select.field-input{cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%238a9bc8'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;appearance:none;-webkit-appearance:none;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.field-row-3{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:6px;}
+.color-row{display:flex;align-items:center;gap:8px;}
+.color-row .field-input{flex:1;}
+.color-swatch-btn{width:38px;height:38px;flex-shrink:0;border-radius:var(--radius-sm);border:2px solid var(--glass-border);cursor:pointer;padding:0;overflow:hidden;}
+.color-swatch-btn input[type="color"]{width:100%;height:100%;border:none;cursor:pointer;padding:0;appearance:none;background:none;}
+.logo-thumb{width:48px;height:48px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:var(--text-muted);flex-shrink:0;overflow:hidden;}
+.logo-thumb img{width:100%;height:100%;object-fit:contain;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;}
+.toggle-label{font-size:12px;font-weight:600;color:var(--text-secondary);}
+.toggle{width:44px;height:24px;border-radius:12px;background:var(--text-muted);position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0;border:none;}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s;}
+.toggle.on{background:var(--accent-blue);}
+.toggle.on::after{left:23px;}
+.date-preview{background:rgba(59,158,255,0.06);border:1px solid rgba(59,158,255,0.15);border-radius:var(--radius-sm);
+  padding:10px 12px;font-family:var(--font-mono);font-size:12px;color:var(--accent-cyan);text-align:center;}
+.team-section{background:rgba(255,255,255,0.02);border-radius:var(--radius-md);border:1px solid var(--glass-border);overflow:hidden;}
+.section-divider{height:1px;background:var(--glass-border);margin:2px 0;}
+.team-header{padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:8px;}
+.team-color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.team-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px;}
+.timing-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+.timing-label{font-size:11px;color:var(--text-secondary);}
+.timing-input{width:90px;padding:6px 8px;text-align:right;background:rgba(255,255,255,0.04);
+  border:1px solid var(--glass-border);border-radius:var(--radius-sm);color:var(--text-primary);
+  font-family:var(--font-mono);font-size:12px;outline:none;}
+.timing-input:focus{border-color:var(--accent-blue);}
+.ms-label{font-size:10px;color:var(--text-muted);}
+.flow-diagram{background:rgba(0,0,0,0.3);border-radius:var(--radius-sm);padding:10px 12px;
+  font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);line-height:1.8;}
+.flow-step{display:flex;align-items:center;gap:8px;}
+.flow-arrow{color:var(--text-muted);}
+.flow-name{color:var(--accent-cyan);}
+.flow-active .flow-name{color:var(--accent-green);font-weight:700;}
+
+/* PERIOD SETTINGS */
+.period-mode-row{display:flex;gap:6px;}
+.period-mode-btn{flex:1;padding:7px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  background:transparent;color:var(--text-muted);font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.15s;text-align:center;}
+.period-mode-btn.active{border-color:rgba(59,158,255,0.5);color:var(--accent-blue);background:rgba(59,158,255,0.1);}
+.period-mode-btn:active{transform:scale(0.95);}
+.period-count-btn{width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:transparent;color:var(--text-primary);font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
+.period-count-btn:active{transform:scale(0.88);background:rgba(59,158,255,0.1);}
+.period-count-display{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent-blue);min-width:30px;text-align:center;}
+
+/* MEDIA */
+.now-playing-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.2);border-radius:var(--radius-sm);
+  font-size:11px;color:var(--accent-green);font-weight:600;}
+.pl-status{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:0.5px;
+  padding:2px 8px;border-radius:10px;flex-shrink:0;margin-left:auto;
+  border:1px solid var(--text-muted);color:var(--text-muted);transition:all 0.2s;}
+.pl-status.playing{border-color:rgba(0,230,118,0.5);color:var(--accent-green);
+  background:rgba(0,230,118,0.08);animation:plpulse 1.4s ease-in-out infinite;}
+.pl-status.audio{border-color:rgba(0,212,255,0.5);color:var(--accent-cyan);
+  background:rgba(0,212,255,0.08);animation:plpulse 1.4s ease-in-out infinite;}
+@keyframes plpulse{0%,100%{opacity:1;}50%{opacity:0.55;}}
+.playing-wave{display:flex;align-items:flex-end;gap:2px;height:14px;}
+.playing-wave span{width:3px;background:var(--accent-green);border-radius:2px;animation:wave 0.8s ease-in-out infinite;}
+.playing-wave span:nth-child(2){animation-delay:0.1s;}
+.playing-wave span:nth-child(3){animation-delay:0.2s;}
+@keyframes wave{0%,100%{height:4px;}50%{height:14px;}}
+.playlist-section{background:rgba(0,0,0,0.3);border:1px solid rgba(59,158,255,0.15);border-radius:var(--radius-md);padding:10px 12px;}
+.playlist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+.playlist-title{font-size:11px;font-weight:700;color:var(--accent-cyan);flex-shrink:0;}
+.playlist-controls{display:flex;gap:5px;}
+.pl-btn{padding:4px 9px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:transparent;color:var(--text-secondary);font-size:10px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.15s;
+  display:flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap;}
+.pl-btn:active{transform:scale(0.93);}
+.pl-btn.loop-on{color:var(--accent-cyan);border-color:rgba(0,212,255,0.4);}
+.pl-btn.audio-on{color:var(--accent-cyan);border-color:rgba(0,212,255,0.4);background:rgba(0,212,255,0.06);}
+/* Portrait phones: hide "Queue" label, squeeze the 5 buttons into ONE full-width row */
+@media(max-width:600px){
+  #plQueueLabel{display:none;}
+  .playlist-header{margin-bottom:8px;}
+  .playlist-controls{display:flex;gap:4px;width:100%;}
+  .playlist-controls .pl-btn{flex:1;min-width:0;padding:7px 2px;font-size:9px;gap:2px;}
+  .playlist-controls .pl-btn .msr{font-size:16px;}
+  .playlist-controls .pl-btn-txt{font-size:8px;letter-spacing:-0.2px;}
+}
+/* Landscape / tablets: show label, keep controls compact on the right, single row */
+@media(min-width:601px){
+  .playlist-controls{flex-wrap:nowrap;}
+}
+.pl-clear-bar{margin-top:8px;width:100%;padding:6px;border-radius:var(--radius-sm);
+  border:1px solid rgba(255,61,61,0.25);background:rgba(255,61,61,0.04);
+  color:var(--accent-red);font-size:10px;font-weight:700;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:4px;transition:all 0.15s;}
+.pl-clear-bar:active{transform:scale(0.98);}
+.pl-clear-bar:hover{background:rgba(255,61,61,0.1);}
+.playlist-queue{display:flex;flex-direction:column;gap:3px;max-height:150px;overflow-y:auto;}
+.pl-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--radius-sm);font-size:11px;border:1px solid transparent;}
+.pl-item.playing{background:rgba(0,230,118,0.08);border-color:rgba(0,230,118,0.2);color:var(--accent-green);}
+.pl-item-num{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);width:16px;text-align:right;flex-shrink:0;}
+.pl-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pl-item-remove{color:var(--text-muted);cursor:pointer;padding:0 4px;font-size:14px;}
+.pl-item-remove:hover{color:var(--accent-red);}
+.pl-item.dragging{opacity:0.4;border-color:var(--accent-blue);}
+.pl-item.drag-over{border-color:var(--accent-cyan);background:rgba(0,212,255,0.05);}
+.pl-item-handle{color:var(--text-muted);font-size:14px;cursor:grab;padding:0 2px;flex-shrink:0;touch-action:none;}
+
+/* vMIX CONNECT */
+.connect-status-card{padding:18px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;}
+.connect-indicator{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:26px;border:2px solid var(--glass-border);transition:all 0.3s;}
+.connect-indicator.connected{border-color:var(--accent-green);background:rgba(0,230,118,0.1);box-shadow:0 0 30px rgba(0,230,118,0.2);}
+.connect-indicator.disconnected{border-color:var(--accent-red);background:rgba(255,61,61,0.08);}
+.connect-btn{width:100%;padding:11px;border-radius:var(--radius-md);border:1px solid var(--glass-border);
+  background:var(--glass-shine);color:var(--text-primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.connect-btn.conn{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.connect-btn.disconn{border-color:rgba(255,61,61,0.4);color:var(--accent-red);}
+.connect-btn:active{transform:scale(0.97);}
+.api-log{background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  padding:8px 10px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);
+  line-height:1.6;max-height:130px;overflow-y:auto;}
+.log-entry{display:flex;gap:8px;}
+.log-time{color:var(--text-muted);flex-shrink:0;}
+.log-msg.ok{color:var(--accent-green);}
+.log-msg.err{color:var(--accent-red);}
+.log-msg.info{color:var(--accent-cyan);}
+/* ── DRAWER (ลิ้นชักกดสไลด์เปิด) ── */
+.drawer{padding:0;}
+.drawer-toggle{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:transparent;border:none;color:var(--text-primary);
+  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left;}
+.drawer-toggle:active{background:rgba(255,255,255,0.03);}
+.drawer-title{flex:1;}
+.drawer-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);white-space:nowrap;}
+.drawer-chevron{color:var(--text-muted);transition:transform 0.3s ease;font-size:20px;}
+.drawer.open .drawer-chevron{transform:rotate(180deg);}
+.drawer-content{max-height:0;overflow:hidden;transition:max-height 0.35s ease;}
+.drawer.open .drawer-content{max-height:640px;}
+.drawer-inner{padding:2px 14px 16px;display:flex;flex-direction:column;gap:12px;}
+.drawer-inner .field-group{gap:5px;}
+.drawer-inner .field-label{line-height:1;}
+.icon-btn{background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  padding:4px 8px;color:var(--text-secondary);font-size:11px;cursor:pointer;font-family:inherit;transition:all 0.15s;display:flex;align-items:center;gap:4px;}
+.icon-btn:active{transform:scale(0.93);}
+
+/* vMIX INPUT CONTROL CARDS */
+.vmix-input-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;}
+.vmix-input-card{background:#000;border:1px solid var(--glass-border);border-radius:var(--radius-lg);
+  overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;}
+.vmix-input-card.is-pgm{border-color:rgba(255,61,61,0.55);box-shadow:0 0 14px rgba(255,61,61,0.18);}
+.vmix-input-card.is-pvw{border-color:rgba(0,230,118,0.45);box-shadow:0 0 12px rgba(0,230,118,0.12);}
+/* row 1: num + type + status badge */
+.vic-meta-row{display:flex;align-items:center;gap:6px;padding:9px 10px 4px;min-width:0;}
+.vic-num{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;}
+.vic-type-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;flex-shrink:0;
+  background:rgba(255,255,255,0.06);color:var(--text-muted);border:1px solid rgba(255,255,255,0.08);}
+.vic-duration{font-size:9px;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;
+  display:flex;align-items:center;gap:2px;opacity:0.8;}
+.vic-meta-spacer{flex:1;}
+.vic-status-badge{font-size:9px;font-weight:800;padding:2px 8px;border-radius:10px;
+  display:flex;align-items:center;gap:3px;flex-shrink:0;}
+.vic-status-badge.pgm{background:rgba(255,61,61,0.2);color:var(--accent-red);border:1px solid rgba(255,61,61,0.4);}
+.vic-status-badge.pvw{background:rgba(0,230,118,0.15);color:var(--accent-green);border:1px solid rgba(0,230,118,0.35);}
+/* row 2: title + playlist btn */
+.vic-title-row{display:flex;align-items:center;gap:6px;padding:0 10px 8px;min-width:0;}
+.vic-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+.vic-addpl-btn{flex-shrink:0;display:flex;align-items:center;gap:3px;
+  padding:3px 7px;border-radius:var(--radius-sm);border:1px solid rgba(0,230,118,0.3);
+  background:transparent;color:var(--accent-green);font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;
+  transition:all 0.12s;white-space:nowrap;}
+.vic-addpl-btn:active{transform:scale(0.92);background:rgba(0,230,118,0.1);}
+/* playing indicator row */
+.vic-playing-row{display:flex;align-items:center;gap:5px;padding:0 10px 6px;}
+.vic-playing-indicator{display:flex;align-items:center;gap:5px;}
+/* 7 control buttons */
+.vic-controls{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:4px 8px 10px;border-top:1px solid var(--glass-border);}
+.vic-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;
+  border-radius:var(--radius-sm);border:1px solid var(--glass-border);background:transparent;
+  color:var(--text-secondary);cursor:pointer;transition:all 0.12s;font-family:inherit;}
+.vic-btn:active{transform:scale(0.88);}
+.vic-btn-label{font-size:8px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;line-height:1;}
+.vic-btn.overlay{color:var(--accent-purple);border-color:rgba(181,123,255,0.35);}
+.vic-btn.overlay:active,.vic-btn.overlay.active{background:rgba(181,123,255,0.15);}
+.vic-btn.audio{color:var(--accent-cyan);border-color:rgba(0,212,255,0.35);}
+.vic-btn.audio.active{background:rgba(0,212,255,0.15);border-color:rgba(0,212,255,0.6);}
+.vic-btn.cut{color:var(--accent-red);border-color:rgba(255,61,61,0.35);}
+.vic-btn.cut:active{background:rgba(255,61,61,0.12);}
+.vic-btn.fade-in{color:var(--accent-blue);border-color:rgba(59,158,255,0.35);}
+.vic-btn.fade-in:active{background:rgba(59,158,255,0.12);}
+.vic-btn.reset{color:var(--accent-amber);border-color:rgba(255,179,0,0.35);}
+.vic-btn.reset:active{background:rgba(255,179,0,0.1);}
+.vic-btn.playpause{color:var(--accent-green);border-color:rgba(0,230,118,0.35);}
+.vic-btn.playpause.active{background:rgba(0,230,118,0.12);border-color:rgba(0,230,118,0.6);}
+.vic-btn.loop{color:var(--accent-cyan);border-color:rgba(0,212,255,0.35);}
+.vic-btn.loop.active{background:rgba(0,212,255,0.15);border-color:rgba(0,212,255,0.6);}
+/* PVW ← Fade → PGM bar, merged into the Input Control card header */
+.vic-card-header{flex-wrap:wrap;gap:6px 8px;}
+.vic-fade-btn{display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  padding:0 10px;border-radius:var(--radius-sm);border:1px solid rgba(59,158,255,0.4);
+  background:rgba(59,158,255,0.08);color:var(--accent-blue);
+  cursor:pointer;transition:all 0.15s;}
+.vic-fade-btn .msr{font-size:16px;}
+.vic-fade-btn:active{transform:scale(0.93);background:rgba(59,158,255,0.2);}
+.vic-pgm-pvw-bar{display:flex;align-items:stretch;gap:6px;}
+.vic-pgm-pvw-bar .pvw-side{display:flex;align-items:center;gap:6px;flex:1;min-width:0;
+  padding:5px 8px;background:rgba(0,230,118,0.07);border-radius:var(--radius-sm);
+  border:1px solid rgba(0,230,118,0.2);}
+.vic-pgm-pvw-bar .pgm-side{display:flex;align-items:center;gap:6px;flex:1;min-width:0;
+  padding:5px 8px;background:rgba(255,61,61,0.07);border-radius:var(--radius-sm);
+  border:1px solid rgba(255,61,61,0.2);justify-content:flex-end;}
+.vic-pvw-label,.vic-pgm-label{font-size:9px;font-weight:800;letter-spacing:1px;flex-shrink:0;}
+.vic-pvw-label{color:var(--accent-green);}
+.vic-pgm-label{color:var(--accent-red);}
+.vic-pvw-name,.vic-pgm-name{font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vic-pvw-name{color:var(--text-primary);}
+.vic-pgm-name{color:var(--text-primary);text-align:right;}
+
+/* PORTRAIT (≤600px): title + refresh on row 1, PVW+Fade+PGM as a full-width block below (2 rows) */
+@media(max-width:600px){
+  .vic-card-header{padding:10px 12px;}
+  .vic-card-title{flex:1;}
+  .vic-refresh{order:2;}
+  .vic-pgm-pvw-bar{order:3;flex-basis:100%;width:100%;}      /* drop to its own row */
+}
+/* LANDSCAPE (≥601px): one line — title · PVW [src] · Fade · [src] PGM · refresh */
+@media(min-width:601px){
+  .vic-card-header{flex-wrap:nowrap;}
+  .vic-card-title{flex:0 0 auto;}
+  .vic-pgm-pvw-bar{flex:1;min-width:0;}
+}
+/* TOAST */
+/* Connection-lost banner — drops from the top so it's visible on every tab */
+.conn-banner{position:fixed;top:0;left:0;right:0;z-index:9998;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px 14px;font-size:12px;font-weight:700;
+  background:rgba(255,61,61,0.95);color:#fff;
+  transform:translateY(-100%);transition:transform 0.3s ease;
+  box-shadow:0 4px 16px -4px rgba(0,0,0,0.5);backdrop-filter:blur(8px);}
+.conn-banner.show{transform:translateY(0);}
+.conn-banner.reconnecting{background:rgba(255,179,0,0.95);color:#1a1200;}
+.conn-banner .msr{font-size:16px;}
+.conn-banner .spin{animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.conn-banner-btn{margin-left:6px;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.5);
+  background:rgba(255,255,255,0.15);color:inherit;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(13,20,32,0.97);border:1px solid var(--glass-border);border-radius:var(--radius-md);
+  padding:10px 16px;font-size:12px;font-weight:600;backdrop-filter:blur(20px);
+  opacity:0;transition:all 0.3s;pointer-events:none;z-index:9999;
+  white-space:nowrap;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.success{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
+.toast.error{border-color:rgba(255,61,61,0.4);color:var(--accent-red);}
+.toast.info{border-color:rgba(59,158,255,0.4);color:var(--accent-blue);}
+@media(min-width:768px){.clock-display{font-size:84px;}}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+<!-- Connection-lost banner (drops from top, visible on any tab) -->
+<div class="conn-banner" id="connBanner">
+  <span class="msr" id="connBannerIcon">wifi_off</span>
+  <span id="connBannerText">ขาดการเชื่อมต่อ vMix</span>
+  <button class="conn-banner-btn" onclick="connectVmix()">ลองใหม่</button>
+</div>
+
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="header-logo">
+    <div class="header-logo-icon"><span class="msr fill" style="color:#fff;">sports_soccer</span></div>
+    <div class="header-text">
+      <div class="header-title">YRU Scoreboard <span class="header-sub">— vMix Controller v3.0</span></div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <span class="mode-badge" id="modeBadge" title="Match Mode · Title Type — ตั้งค่าที่โปรแกรม vMixController บนคอมพิวเตอร์">Thai League · Logo</span>
+    <button class="ftb-btn" id="ftbBtn" onclick="toggleFTB()" title="Fade To Black — ตัดจอดำฉุกเฉิน">
+      <span class="msr" style="font-size:14px;">tv_off</span><span class="ftb-txt">FTB</span>
+    </button>
+    <div class="vmix-status-badge disconnected" id="statusBadge" onclick="switchTab('vmix')">
+      <div class="status-dot"></div>
+      <span id="statusText">OFFLINE</span>
+    </div>
+    <button class="sync-btn" id="syncBtn" onclick="syncAllToVmix()">
+      <span class="msr sync-icon" style="font-size:14px;">sync</span> Sync
+    </button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main-content" id="mainContent">
+
+<!-- ══════════ MATCH PANEL ══════════ -->
+<div class="panel active" id="panel-match">
+
+  <!-- SCORE HERO -->
+  <div class="score-hero full-width">
+    <div class="score-hero-header">
+      <span class="score-hero-title"><span class="msr sm" style="vertical-align:-3px;">sports_soccer</span> SCORE</span>
+    </div>
+
+    <!-- Unified Scoreboard Display -->
+    <div style="padding:14px;">
+      <div class="sb-preview sb-preview-main">
+        <div class="sb-color-bar-home" id="sbHomeBar" style="background:#1a3a6b;"></div>
+        <div class="sb-color-bar-away" id="sbAwayBar" style="background:#8b0000;"></div>
+        <div class="sb-comp-name" id="sbCompName">— COMPETITION —</div>
+        <div class="sb-main-inner">
+          <div class="sb-team-block">
+            <div class="sb-team-logo" id="sbHomeLogo"><span class="msr">home</span></div>
+            <div class="sb-team-name" id="sbHomeName">HOME</div>
+          </div>
+          <div class="sb-center-block">
+            <div class="sb-period-label" id="sbPeriodLabel">1ST</div>
+            <div class="sb-score-row">
+              <span class="sb-score-num-big flip-tile" id="sbHomeScore">0</span>
+              <span class="sb-score-sep-big">:</span>
+              <span class="sb-score-num-big flip-tile" id="sbAwayScore">0</span>
+            </div>
+            <span class="sb-clock-big flip-tile" id="sbClock">00:00</span>
+          </div>
+          <div class="sb-team-block away">
+            <div class="sb-team-logo" id="sbAwayLogo"><span class="msr">flight</span></div>
+            <div class="sb-team-name" id="sbAwayName">AWAY</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Adjustment Buttons (below) -->
+    <div class="score-adjust-row">
+      <div class="score-adjust-col">
+        <div class="score-adjust-label" id="homeNameDisplay">HOME</div>
+        <div class="score-btns">
+          <button class="score-adj-btn minus" onclick="adjustScore('home',-1)">−</button>
+          <button class="score-adj-btn plus" onclick="adjustScore('home',1)">+</button>
+        </div>
+      </div>
+      <div class="score-adjust-col">
+        <div class="score-adjust-label" id="awayNameDisplay">AWAY</div>
+        <div class="score-btns">
+          <button class="score-adj-btn minus" onclick="adjustScore('away',-1)">−</button>
+          <button class="score-adj-btn plus" onclick="adjustScore('away',1)">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="goal-btn full-width" id="goalBtn" onclick="confirmAction('goal')">
+    <span class="msr lg">sports_score</span> GOAL! Macro
+  </button>
+
+</div><!-- /panel-match -->
+
+<!-- ══════════ MEDIA PANEL ══════════ -->
+<div class="panel" id="panel-media">
+
+  <!-- vMix INPUTS — PVW/PGM bar, pinned to top -->
+  <div class="card full-width vic-card">
+    <!-- แถวเสียง (บนสุด) — คุมเสียงของ input ที่อยู่ PGM -->
+    <div class="vic-volume-row" id="vicVolumeRow" style="display:none;">
+      <span class="msr sm" id="vicVolIcon" style="color:var(--accent-cyan);">volume_up</span>
+      <input type="range" class="tp-range vol-range" id="vicVolSlider" min="0" max="100" value="100"
+             oninput="volSliderInput(this)">
+      <span class="vic-vol-val" id="vicVolVal">100</span>
+    </div>
+    <div class="card-header vic-card-header">
+      <div class="card-header-icon vic-card-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">cast</span></div>
+      <div class="card-header-title vic-card-title">vMix Inputs</div>
+      <div id="vicPgmPvwBar" class="vic-pgm-pvw-bar">
+        <div class="pvw-side">
+          <span class="vic-pvw-label">PVW</span>
+          <span class="vic-pvw-name" id="pvwName">—</span>
+        </div>
+        <button class="vic-fade-btn" onclick="fadePvwToPgm()" title="Fade PVW → PGM (500ms)">
+          <span class="msr sm">gradient</span>
+        </button>
+        <div class="pgm-side">
+          <span class="vic-pgm-name" id="pgmName">—</span>
+          <span class="vic-pgm-label">PGM</span>
+        </div>
+      </div>
+      <button class="icon-btn vic-refresh" onclick="fetchVmixState()" title="อ่านสถานะจาก vMix ทันที ไม่รอรอบ 10 วิ"><span class="msr sm">refresh</span></button>
+    </div>
+    <!-- Transport — เวลา/seek ของ PGM (เฉพาะไฟล์วิดีโอ/เสียง) -->
+    <div class="vic-transport" id="vicTransport" style="display:none;">
+      <span class="tp-elapsed" id="tpElapsed">0:00:00</span>
+      <span class="tp-remain" id="tpRemain">0:00:00</span>
+      <button class="tp-btn" onclick="transportReset()" title="Reset PGM ไปจุดเริ่ม"><span class="msr sm">restart_alt</span></button>
+      <input type="range" class="tp-range tp-seek" id="tpSeek" min="0" max="1000" value="0"
+             oninput="tpSeekInput(this)" onchange="tpSeekCommit(this)">
+      <button class="tp-btn tp-play" id="tpPlayBtn" onclick="transportPlayPause()"><span class="msr sm" id="tpPlayIcon">play_arrow</span></button>
+    </div>
+    <!-- Slideshow — Photos / PowerPoint / Image Sequence บน PGM -->
+    <div class="vic-slides" id="vicSlides" style="display:none;">
+      <button class="tp-btn sl-reset" onclick="slidesReset()" title="กลับสไลด์แรก"><span class="msr sm">restart_alt</span></button>
+      <button class="tp-btn sl-loop" id="slLoopBtn" onclick="slidesLoop()" title="วนซ้ำ"><span class="msr sm" id="slLoopIcon">repeat</span></button>
+      <button class="tp-btn tp-play sl-play" id="slPlayBtn" onclick="slidesPlayPause()" title="เล่น/หยุด SlideShow"><span class="msr sm" id="slPlayIcon">play_arrow</span></button>
+      <button class="tp-btn sl-prev" onclick="slidesPrev()" title="สไลด์ก่อนหน้า"><span class="msr sm">navigate_before</span></button>
+      <input type="range" class="tp-range sl-seek" id="slSeek" min="1" max="10" step="1" value="1"
+             onchange="slSeekCommit(this)">
+      <button class="tp-btn sl-next" onclick="slidesNext()" title="สไลด์ถัดไป"><span class="msr sm">navigate_next</span></button>
+    </div>
+  </div>
+
+  <!-- INPUT CONTROL — scrollable grid of input cards -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">devices</span></div>
+      <div class="card-header-title">Input Control</div>
+      <span class="card-header-badge" style="color:var(--accent-blue);" id="vicBadge">0</span>
+    </div>
+    <div class="card-body" style="padding:8px;">
+      <div id="vicGrid" class="vmix-input-grid">
+        <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">
+          <span class="msr lg" style="display:block;margin-bottom:8px;opacity:0.3;">cast</span>
+          Connect to vMix to load inputs
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Now Playing -->
+  <div id="nowPlayingSection" style="display:none;" class="full-width">
+    <div class="now-playing-bar">
+      <div class="playing-wave"><span></span><span></span><span></span></div>
+      <span id="nowPlayingName">—</span>
+    </div>
+  </div>
+
+  <!-- Playlist -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,230,118,0.1);"><span class="msr sm" style="color:var(--accent-green);">list_alt</span></div>
+      <div class="card-header-title">Playlist Queue</div>
+      <span class="pl-status" id="plStatus">IDLE</span>
+      <span class="card-header-badge" style="color:var(--accent-green);" id="plBadge">0</span>
+    </div>
+    <div class="card-body">
+      <div class="playlist-section">
+        <div class="playlist-header">
+          <span class="playlist-title" id="plQueueLabel"><span class="msr sm" style="vertical-align:-3px;">play_arrow</span> Queue</span>
+          <div class="playlist-controls">
+            <button class="pl-btn" id="plAudioBtn" onclick="togglePlaylistAudioOnly()"><span class="msr sm" style="vertical-align:-3px;">volume_off</span> <span class="pl-btn-txt">Audio</span></button>
+            <button class="pl-btn" id="plPlayBtn" onclick="playlistPlay()"><span class="msr sm" style="vertical-align:-3px;">play_arrow</span> <span class="pl-btn-txt">Play</span></button>
+            <button class="pl-btn" onclick="playlistNext()"><span class="msr sm" style="vertical-align:-3px;">skip_next</span> <span class="pl-btn-txt">Next</span></button>
+            <button class="pl-btn" onclick="playlistStop()"><span class="msr sm" style="vertical-align:-3px;">stop</span> <span class="pl-btn-txt">Stop</span></button>
+            <button class="pl-btn" id="plLoopBtn" onclick="togglePlaylistLoop()"><span class="msr sm" style="vertical-align:-3px;">repeat</span> <span class="pl-btn-txt">Loop</span></button>
+          </div>
+        </div>
+        <div class="playlist-queue" id="playlistQueue">
+          <div style="text-align:center;padding:10px;color:var(--text-muted);font-size:11px;">Add items from Input Control cards above</div>
+        </div>
+        <button class="pl-clear-bar" onclick="clearPlaylist()"><span class="msr sm" style="vertical-align:-2px;">delete_sweep</span> Clear Playlist</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel-media -->
+
+<!-- ══════════ SETTINGS PANEL ══════════ -->
+<div class="panel" id="panel-settings">
+
+  <!-- CLOCK + MACRO CARD -->
+  <div class="clock-card full-width">
+    <div class="clock-card-header">
+      <div class="card-header-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">sports_soccer</span></div>
+      <div class="clock-card-title">Match Clock</div>
+    </div>
+    <div class="clock-inner">
+      <div class="clock-half-label" id="halfLabel">PERIOD 1</div>
+      <div class="clock-display stopped" id="clockDisplay">00:00</div>
+      <div class="period-switcher" id="periodSwitcher"></div>
+      <div class="clock-controls">
+        <button class="clock-btn start-btn" onclick="confirmAction('clockstart')">
+          <span class="msr clock-btn-icon">play_arrow</span><span class="clock-btn-label">Start</span>
+        </button>
+        <button class="clock-btn pause-btn" onclick="confirmAction('clockpause')">
+          <span class="msr clock-btn-icon">pause</span><span class="clock-btn-label">Pause</span>
+        </button>
+        <button class="clock-btn reset-btn" onclick="confirmAction('clockreset')">
+          <span class="msr clock-btn-icon">replay</span><span class="clock-btn-label">Reset</span>
+        </button>
+      </div>
+      <button class="start-match-btn" style="margin-top:10px;" onclick="confirmAction('startmatch')">
+        <span class="msr">rocket_launch</span> Start Match
+      </button>
+    </div>
+    <!-- ลิ้นชัก: Period Settings (ส่วนหนึ่งของ Match Clock) -->
+    <div class="drawer clock-drawer" id="drawerPeriodSettings">
+      <button class="drawer-toggle" onclick="toggleDrawer('drawerPeriodSettings')">
+        <div class="card-header-icon" style="background:rgba(0,212,255,0.1);"><span class="msr sm" style="color:var(--accent-cyan);">tune</span></div>
+        <span class="drawer-title">Period Settings</span>
+        <span class="msr drawer-chevron">expand_more</span>
+      </button>
+      <div class="drawer-content">
+        <div class="drawer-inner period-settings-inner">
+          <div class="field-group">
+            <div class="field-label">Number of Periods</div>
+            <div class="period-ctrl-row">
+              <button class="period-count-btn" onclick="setPeriodCount(-1)">−</button>
+              <div class="period-count-display" id="periodCountDisplay">2</div>
+              <button class="period-count-btn" onclick="setPeriodCount(1)">+</button>
+              <span style="font-size:11px;color:var(--text-muted);">periods (2–4)</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Minutes per Period</div>
+            <div class="period-ctrl-row">
+              <button class="period-count-btn" onclick="setPeriodMins(-5)">−</button>
+              <div class="period-count-display" id="periodMinsDisplay">45</div>
+              <button class="period-count-btn" onclick="setPeriodMins(5)">+</button>
+              <span style="font-size:11px;color:var(--text-muted);">min/period</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Clock Mode</div>
+            <div class="period-mode-row">
+              <button class="period-mode-btn active" id="modeContBtn" onclick="setClockMode('continuous',this)"><span class="msr sm" style="vertical-align:-3px;">trending_up</span> Cumulative</button>
+              <button class="period-mode-btn" id="modeResetBtn" onclick="setClockMode('reset',this)"><span class="msr sm" style="vertical-align:-3px;">replay</span> Reset Each</button>
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px;" id="clockModeHint">นับต่อเนื่อง: P1=0–45, P2=45–90</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATE -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,212,255,0.1);"><span class="msr sm" style="color:var(--accent-cyan);">calendar_month</span></div>
+      <div class="card-header-title">Match Date & Kick Off</div>
+    </div>
+    <div class="card-body center-fields">
+      <!-- Row 1: Day of week dropdown -->
+      <div class="field-group">
+        <div class="field-label">Day of Week</div>
+        <select class="field-input" id="matchDayOfWeek" onchange="updatePreview()">
+          <option value="">— Select Day —</option>
+          <option>Sunday</option><option>Monday</option><option>Tuesday</option>
+          <option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
+        </select>
+      </div>
+      <!-- Row 2: Date (text) | Month (dropdown) | Year (text) -->
+      <div class="field-row-3">
+        <div class="field-group">
+          <div class="field-label">Date</div>
+          <input class="field-input" id="matchDay" type="text" maxlength="2" placeholder="24" oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Month</div>
+          <select class="field-input" id="matchMonth" onchange="updatePreview()">
+            <option value="">Month</option>
+            <option>January</option><option>February</option><option>March</option>
+            <option>April</option><option>May</option><option>June</option>
+            <option>July</option><option>August</option><option>September</option>
+            <option>October</option><option>November</option><option>December</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Year</div>
+          <input class="field-input" id="matchYear" type="text" maxlength="4" placeholder="2568" oninput="updatePreview()">
+        </div>
+      </div>
+      <!-- Row 3: Kick Off full width -->
+      <div class="field-group">
+        <div class="field-label">Kick Off</div>
+        <input class="field-input" id="kickOff" type="time" value="15:00" oninput="updatePreview()" style="width:100%;">
+      </div>
+      <div class="date-preview" id="datePreview">— กรอกข้อมูลวันที่ —</div>
+    </div>
+  </div>
+
+  <!-- COMPETITION & TEAMS (การ์ดรวม) -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(181,123,255,0.15);"><span class="msr sm" style="color:var(--accent-purple);">emoji_events</span></div>
+      <div class="card-header-title">Competition & Teams</div>
+    </div>
+    <div class="card-body">
+
+      <div style="font-size:10px;color:var(--text-muted);"><span class="msr sm" style="vertical-align:-3px;">computer</span> ตั้งค่าหลักที่โปรแกรม vMixController บนคอมพิวเตอร์ — หน้านี้ไว้แก้ด่วนบนมือถือ/ไอแพด (บันทึกกลับให้อัตโนมัติ)</div>
+      <div class="field-group" id="compNameGroup">
+        <div class="field-label">Competition Name</div>
+        <input class="field-input" id="compName" placeholder="YRU Football League 2025" oninput="updatePreview();updateSBPreview()">
+      </div>
+      <div class="field-group" id="compLogoGroup" style="display:none;">
+        <div class="field-label">Competition Logo <span style="color:var(--text-muted);">(อัปโหลดไฟล์ที่โปรแกรม vMixController — แก้ชื่อไฟล์ด่วนได้ที่นี่)</span></div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div id="compLogoPreview" class="logo-thumb"><span class="msr lg">emoji_events</span></div>
+          <input class="field-input" id="compLogoFilename" placeholder="comp-logo.png" oninput="updateSBPreview()" style="font-family:var(--font-mono);font-size:11px;flex:1;">
+        </div>
+      </div>
+      <div class="section-divider"></div>
+
+      <div class="team-section">
+        <div class="team-header"><div class="team-color-dot" id="homeColorDot" style="background:#1a3a6b;"></div>Home Team</div>
+        <div class="team-body">
+          <div class="field-group">
+            <div class="field-label">Team Name</div>
+            <input class="field-input" id="homeName" placeholder="Home FC" oninput="updateTeamDisplay()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">Team Color</div>
+            <div class="color-row">
+              <input class="field-input" id="homeColorHex" value="#1a3a6b" oninput="syncColor('home')">
+              <div class="color-swatch-btn"><input type="color" id="homeColorPicker" value="#1a3a6b" oninput="syncColorFromPicker('home')"></div>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Team Logo <span style="color:var(--text-muted);">(อัปโหลดที่โปรแกรม vMixController)</span></div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <div id="homeLogoPreview" class="logo-thumb"><span class="msr lg">home</span></div>
+              <input class="field-input" id="homeLogoFilename" placeholder="home-logo.png" oninput="updateSBPreview()" style="font-family:var(--font-mono);font-size:11px;flex:1;">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="section-divider"></div>
+
+      <div class="team-section">
+        <div class="team-header"><div class="team-color-dot" id="awayColorDot" style="background:#8b0000;"></div>Away Team</div>
+        <div class="team-body">
+          <div class="field-group">
+            <div class="field-label">Team Name</div>
+            <input class="field-input" id="awayName" placeholder="Away United" oninput="updateTeamDisplay()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">Team Color</div>
+            <div class="color-row">
+              <input class="field-input" id="awayColorHex" value="#8b0000" oninput="syncColor('away')">
+              <div class="color-swatch-btn"><input type="color" id="awayColorPicker" value="#8b0000" oninput="syncColorFromPicker('away')"></div>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Away Logo <span style="color:var(--text-muted);">(อัปโหลดที่โปรแกรม vMixController)</span></div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <div id="awayLogoPreview" class="logo-thumb"><span class="msr lg">flight</span></div>
+              <input class="field-input" id="awayLogoFilename" placeholder="away-logo.png" oninput="updateSBPreview()" style="font-family:var(--font-mono);font-size:11px;flex:1;">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMING -->
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(255,179,0,0.1);"><span class="msr sm" style="color:var(--accent-amber);">timer</span></div>
+      <div class="card-header-title">Timing Settings</div>
+      <span class="card-header-badge" style="color:var(--accent-amber);">ms</span>
+    </div>
+    <div class="card-body">
+      <div class="timing-row">
+        <div class="timing-label">Countdown duration</div>
+        <div style="display:flex;align-items:center;gap:4px;"><input class="timing-input" id="countdownDuration" value="7000"><span class="ms-label">ms</span></div>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin:-6px 0 4px;">ใช้เฉพาะ Thai League Mode — Start จะเริ่มจับเวลาแข่งขันจริงที่ (Countdown duration − 1750ms) เสมอ ไม่เกี่ยวกับ General Mode</div>
+      <div class="timing-row">
+        <div class="timing-label">Goal! duration</div>
+        <div style="display:flex;align-items:center;gap:4px;"><input class="timing-input" id="goalDuration" value="13000"><span class="ms-label">ms</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLOW NOTE (ล่างสุดของแท็บ Setup) -->
+  <div class="card full-width">
+    <div class="card-body">
+      <div id="flowDiagram" class="flow-diagram">
+        <div class="flow-step"><span class="msr sm flow-arrow">radio_button_checked</span><span class="flow-name">PA Screen</span></div>
+        <div class="flow-step"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Countdown.mp4</span></div>
+        <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel-settings -->
+
+<!-- ══════════ vMIX PANEL ══════════ -->
+<div class="panel" id="panel-vmix">
+
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,230,118,0.1);"><span class="msr sm" style="color:var(--accent-green);">cable</span></div>
+      <div class="card-header-title">vMix Connection</div>
+    </div>
+    <div class="card-body">
+      <div class="connect-status-card">
+        <div class="connect-indicator disconnected" id="connectIndicator"><span class="msr xl">settings_input_antenna</span></div>
+        <div style="font-size:12px;color:var(--text-secondary);" id="connectSubtext">Not connected to vMix</div>
+      </div>
+      <div class="field-row">
+        <button class="connect-btn conn" onclick="connectVmix()"><span class="msr sm" style="vertical-align:-3px;">check_circle</span> Connect</button>
+        <button class="connect-btn disconn" onclick="disconnectVmix()"><span class="msr sm" style="vertical-align:-3px;">cancel</span> Disconnect</button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Auto Reconnect</span>
+        <button class="toggle on" id="autoReconnectToggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card full-width">
+    <div class="card-header">
+      <div class="card-header-icon" style="background:rgba(0,212,255,0.1);"><span class="msr sm" style="color:var(--accent-cyan);">description</span></div>
+      <div class="card-header-title">API Log</div>
+      <button class="icon-btn" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="card-body">
+      <div class="api-log" id="apiLog">
+        <div class="log-entry"><span class="log-time">--:--:--</span><span class="log-msg info">Ready. Configure IP and connect.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ลิ้นชัก: Connection Settings (IP/Port + คำแนะนำ CORS) -->
+  <div class="card full-width drawer" id="drawerConnSettings">
+    <button class="drawer-toggle" onclick="toggleDrawer('drawerConnSettings')">
+      <div class="card-header-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">settings_ethernet</span></div>
+      <span class="drawer-title">Connection Settings</span>
+      <span class="drawer-sub" id="drawerConnSub">10.20.42.62 : 8088</span>
+      <span class="msr drawer-chevron">expand_more</span>
+    </button>
+    <div class="drawer-content">
+      <div class="drawer-inner">
+        <div class="field-group">
+          <div class="field-label">vMix IP Address</div>
+          <input class="field-input" id="vmixIP" value="10.20.42.62" placeholder="192.168.1.x">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Port</div>
+          <input class="field-input" id="vmixPort" value="8088" type="number">
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);line-height:1.5;">
+          <span class="msr sm" style="vertical-align:-3px;font-size:12px;">info</span>
+          ปกติไม่ต้องแก้ — IP ตั้งอัตโนมัติตามที่อยู่ที่ใช้เปิดหน้าเว็บนี้
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ลิ้นชัก: Manual API -->
+  <div class="card full-width drawer" id="drawerManualApi">
+    <button class="drawer-toggle" onclick="toggleDrawer('drawerManualApi')">
+      <div class="card-header-icon" style="background:rgba(255,179,0,0.1);"><span class="msr sm" style="color:var(--accent-amber);">build</span></div>
+      <span class="drawer-title">Manual API</span>
+      <span class="msr drawer-chevron">expand_more</span>
+    </button>
+    <div class="drawer-content">
+      <div class="drawer-inner">
+        <div class="field-group">
+          <div class="field-label">Function</div>
+          <input class="field-input" id="manualFunction" placeholder="e.g. Fade, SetText, Play">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Input</div>
+          <input class="field-input" id="manualInput" placeholder="e.g. SB-LOGO.gtzip">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Value</div>
+          <input class="field-input" id="manualValue" placeholder="Optional">
+        </div>
+        <div class="field-group">
+          <div class="field-label">SelectedName</div>
+          <input class="field-input" id="manualSelectedName" placeholder="e.g. Title-Home.Text">
+        </div>
+        <button class="send-btn" onclick="sendManualAPI()"><span class="msr sm" style="vertical-align:-3px;">arrow_upward</span> Send API Request</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel-vmix -->
+
+</div><!-- /main-content -->
+
+<!-- TAB BAR: Match | Media | Settings | vMix -->
+<nav class="tab-bar">
+  <button class="tab-btn active" id="tab-match" onclick="switchTab('match')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 00-4 20M12 2a14.5 14.5 0 014 20M2 12h20M3.3 7h17.4M3.3 17h17.4"/></svg>
+    <span class="tab-label">Match</span>
+  </button>
+  <button class="tab-btn" id="tab-media" onclick="switchTab('media')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="4"/><path d="M10 9l5 3-5 3V9z" fill="currentColor" stroke="none"/></svg>
+    <span class="tab-label">Media</span>
+  </button>
+  <button class="tab-btn" id="tab-settings" onclick="switchTab('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 7.5l4.3 3.1-1.6 5H9.3l-1.6-5L12 7.5z" fill="currentColor" stroke="none"/><path d="M12 2v5.5M21.5 9.5l-5.2 1.1M18 21l-3.3-4.4M6 21l3.3-4.4M2.5 9.5l5.2 1.1"/></svg>
+    <span class="tab-label">Setup</span>
+  </button>
+  <button class="tab-btn" id="tab-vmix" onclick="switchTab('vmix')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="3.4"/><circle cx="17" cy="17" r="3.4"/><path d="M9.5 9.5l5 5"/><path d="M17 3.5v3M20.5 7h-3M7 17.5v3M3.5 17h3"/></svg>
+    <span class="tab-label">vMix</span>
+  </button>
+</nav>
+
+</div><!-- /app-shell -->
+
+<!-- CONFIRM OVERLAY -->
+<div class="confirm-overlay" id="confirmOverlay" style="display:none;">
+  <div class="confirm-box">
+    <span class="msr xl" id="confirmIcon" style="color:var(--accent-amber);">help</span>
+    <div class="confirm-title" id="confirmTitle">ยืนยัน</div>
+    <div class="confirm-body" id="confirmBody">คุณแน่ใจหรือไม่?</div>
+    <div class="confirm-btns">
+      <button class="confirm-no" onclick="confirmCancel()"><span class="msr sm" style="vertical-align:-3px;">close</span> ยกเลิก</button>
+      <button class="confirm-yes" id="confirmYesBtn" onclick="confirmProceed()"><span class="msr sm" style="vertical-align:-3px;">check</span> ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════
+// STATE
+// ═══════════════════════════════
+const state = {
+  connected:false, reconnectTimer:null, reconnectAttempts:0, manualDisconnect:false,
+  titleType:'logo', matchMode:'thai',
+  periodCount:2, periodMins:45, clockMode:'continuous',
+  currentPeriod:1, clockSeconds:0, clockRunning:false, clockTimer:null,
+  homeScore:0, awayScore:0,
+  homeName:'HOME', awayName:'AWAY',
+  homeColor:'#1a3a6b', awayColor:'#8b0000',
+  playlist:[], plIndex:-1, plRunning:false, plLoop:false, plAudioOnly:false,
+  pendingAction:null, ftbActive:false,
+  vmixInputs:[],        // [{num, title, type, state, duration, key}]
+  vmixActive:null,      // PGM input number
+  vmixPreview:null,     // PVW input number
+  inputAudioOnly:{},    // {inputTitle: bool} — audio-only mode per input
+  inputPlaying:{},      // {inputTitle: bool} — playing state per input
+  inputLoop:{},         // {inputTitle: bool} — loop state per input
+  baseUrl:'',           // cached http://ip:port — rebuilt only when IP/port changes
+  inputKey:{},          // {inputTitle: GUID} — send GUID (fast, order-proof) instead of title
+  _fetchAbort:null,     // AbortController for the in-flight XML fetch (debounce)
+  _scoreEditedAt:0,     // timestamp of last local score tap (grace period before poll overwrites)
+  _lastGridSig:'',      // signature of last VIC grid structure (skip rebuild if unchanged)
+};
+
+// Build/refresh the cached base URL. Call once at init and whenever IP/port changes.
+function refreshBaseUrl(){
+  const ip=(document.getElementById('vmixIP').value||'127.0.0.1').trim();
+  const port=(document.getElementById('vmixPort').value||'8088').trim();
+  state.baseUrl=`http://${ip}:${port}`;
+  return state.baseUrl;
+}
+// Resolve an input reference to its GUID if we know it (faster + survives re-ordering).
+function inputRef(title){ return state.inputKey[title] || title; }
+
+// Coalesce post-action XML refreshes: many quick taps → one fetch, not a pile-up.
+let _refreshTimer=null;
+function scheduleStateRefresh(delay=450){
+  if(_refreshTimer) clearTimeout(_refreshTimer);
+  _refreshTimer=setTimeout(()=>{ _refreshTimer=null; if(state.connected) fetchVmixState(); }, delay);
+}
+
+// ═══════════════════════════════
+// TABS
+// ═══════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ═══════════════════════════════
+// PERIOD SETTINGS
+// ═══════════════════════════════
+function setPeriodCount(delta) {
+  state.periodCount = Math.min(4, Math.max(2, state.periodCount + delta));
+  document.getElementById('periodCountDisplay').textContent = state.periodCount;
+  rebuildPeriodSwitcher();
+  scheduleConfigSave();
+}
+
+async function setPeriodMins(delta) {
+  state.periodMins = Math.min(90, Math.max(5, state.periodMins + delta));
+  document.getElementById('periodMinsDisplay').textContent = state.periodMins;
+  updateClockModeHint();
+  scheduleConfigSave();
+  await clockReset();
+}
+
+async function setClockMode(mode, btn) {
+  state.clockMode = mode;
+  document.getElementById('modeContBtn').classList.toggle('active', mode==='continuous');
+  document.getElementById('modeResetBtn').classList.toggle('active', mode==='reset');
+  updateClockModeHint();
+  scheduleConfigSave();
+  await clockReset();
+}
+
+function updateClockModeHint() {
+  const m = state.periodMins;
+  const hint = state.clockMode === 'continuous'
+    ? `นับต่อเนื่อง: P1=0–${m}, P2=${m}–${m*2}${state.periodCount>2?', P3='+m*2+'–'+m*3:''}`
+    : `Reset ทุก period: แต่ละ period 0–${m} min`;
+  document.getElementById('clockModeHint').textContent = hint;
+}
+
+function getPeriodStart(p) {
+  // p is 1-indexed
+  return state.clockMode === 'continuous' ? (p-1) * state.periodMins * 60 : 0;
+}
+function getPeriodLimit(p) {
+  return state.clockMode === 'continuous' ? p * state.periodMins * 60 : state.periodMins * 60;
+}
+
+function rebuildPeriodSwitcher() {
+  const labels = ['1ST','2ND','3RD','4TH'];
+  const c = document.getElementById('periodSwitcher');
+  c.innerHTML = '';
+  for (let i=1; i<=state.periodCount; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'period-btn' + (i===state.currentPeriod?' active':'');
+    btn.textContent = labels[i-1];
+    btn.onclick = () => confirmAction('period', i);
+    c.appendChild(btn);
+  }
+}
+
+async function selectPeriod(p) {
+  state.currentPeriod = p;
+  const labels = ['1ST PERIOD','2ND PERIOD','3RD PERIOD','4TH PERIOD'];
+  document.getElementById('halfLabel').textContent = labels[p-1];
+  document.getElementById('sbPeriodLabel').textContent = ['1ST','2ND','3RD','4TH'][p-1];
+  document.querySelectorAll('.period-btn').forEach((b,i)=>b.classList.toggle('active',i+1===p));
+  if (!state.clockRunning) await clockReset();
+}
+
+// ═══════════════════════════════
+// CLOCK — driven by vMix's own built-in Countdown timer (GT Title Designer
+// "Countdown" object set to Reverse/count-up mode, target field Time.Text).
+// vMix counts entirely on its own once started — it does NOT depend on the
+// phone/browser staying open. The setInterval below only refreshes the
+// LOCAL display in this app for the operator's convenience; if it stops
+// (screen lock, tab closed) the scoreboard on vMix keeps counting fine.
+// ═══════════════════════════════
+function secsToHMS(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return [h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
+}
+
+async function clockStart(startOffsetSeconds) {
+  if (state.clockRunning) return;
+  const limit = getPeriodLimit(state.currentPeriod);
+  const start = getPeriodStart(state.currentPeriod);
+  if (state.clockSeconds >= limit) { showToast('Period นี้จบแล้ว','error'); return; }
+
+  // Countdown commands ส่งไปเฉพาะ SB file ที่เลือกอยู่ (ที่ตั้งค่า Countdown object ไว้ใน GT Designer)
+  // ห้ามส่งไปทั้ง 2 ไฟล์ เพราะไฟล์ที่ไม่มี Countdown object จะไปแก้ field อื่นแทน (เช่น Title-Match.Text)
+  const sb = getSBInput();
+  const resuming = state.clockSeconds > start;
+
+  if (!resuming) {
+    await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(start)});
+    await vmixApi('SetCountdown',{Input:sb,Value:secsToHMS(limit)});
+  }
+  await vmixApi('StartCountdown',{Input:sb});
+  addLog('ok',`vMix Countdown started on ${sb} (${secsToHMS(start)} → ${secsToHMS(limit)})`);
+
+  state.clockRunning = true;
+  updateClockUI();
+  if (startOffsetSeconds) {
+    state.clockSeconds += startOffsetSeconds;
+    updateClockDisplay();
+    updateSBPreview();
+  }
+  state.clockTimer = setInterval(() => {
+    state.clockSeconds++;
+    const lim = getPeriodLimit(state.currentPeriod);
+    if (state.clockSeconds >= lim) {
+      state.clockSeconds = lim; // clamp — ไม่ให้เกิน 45:00 เด็ดขาด
+      state.clockRunning = false;
+      clearInterval(state.clockTimer);
+      document.getElementById('clockDisplay').className = 'clock-display stopped';
+      updateClockDisplay();
+      updateSBPreview();
+      showToast(`Period ${state.currentPeriod} จบ!`,'info');
+      return; // หยุดทันที ไม่ทำงานต่อ
+    }
+    updateClockDisplay();
+    updateSBPreview();
+  }, 1000);
+}
+
+async function clockPause() {
+  if (!state.clockRunning) { clockStart(); return; }
+  state.clockRunning = false;
+  clearInterval(state.clockTimer);
+  document.getElementById('clockDisplay').className = 'clock-display paused';
+  await vmixApi('SuspendCountdown',{Input:getSBInput()});
+  addLog('info','vMix Countdown paused');
+  showToast('Paused','info');
+}
+
+async function clockReset() {
+  state.clockRunning = false;
+  clearInterval(state.clockTimer);
+  state.clockSeconds = getPeriodStart(state.currentPeriod);
+  updateClockDisplay();
+  document.getElementById('clockDisplay').className = 'clock-display stopped';
+  updateSBPreview();
+  const sb = getSBInput();
+  await vmixApi('StopCountdown',{Input:sb});
+  await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(state.clockSeconds)});
+  addLog('info',`vMix Countdown reset to ${secsToHMS(state.clockSeconds)}`);
+}
+
+// Resync local display from vMix's actual current value (call after
+// reopening the app / waking the phone, so the operator sees the true time).
+function syncClockFromVmixText(timeStr) {
+  // timeStr expected as mm:ss or hh:mm:ss
+  const parts = timeStr.split(':').map(n=>parseInt(n)||0);
+  let secs = 0;
+  if (parts.length===3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
+  else if (parts.length===2) secs = parts[0]*60 + parts[1];
+  state.clockSeconds = secs;
+  updateClockDisplay();
+  updateSBPreview();
+}
+
+function updateClockDisplay() {
+  const elapsed = state.clockSeconds;
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  const str = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  document.getElementById('clockDisplay').textContent = str;
+  document.getElementById('sbClock').textContent = str;
+}
+
+function updateClockUI() {
+  document.getElementById('clockDisplay').className =
+    state.clockRunning ? 'clock-display running' : 'clock-display paused';
+}
+
+// ═══════════════════════════════════════
+// vMIX INPUT CONTROL (VIC)
+// ═══════════════════════════════════════
+
+// Icon map by vMix input type
+
+
+function renderVicGrid(){
+  const grid = document.getElementById('vicGrid');
+  const badge = document.getElementById('vicBadge');
+  const inputs = state.vmixInputs;
+  badge.textContent = inputs.length;
+
+  // Update PVW/PGM name bar
+  const pgmInput = inputs.find(i=>i.num===state.vmixActive);
+  const pvwInput = inputs.find(i=>i.num===state.vmixPreview);
+  const pgmEl = document.getElementById('pgmName');
+  const pvwEl = document.getElementById('pvwName');
+  if(pgmEl) pgmEl.textContent = pgmInput ? pgmInput.title : '—';
+  if(pvwEl) pvwEl.textContent = pvwInput ? pvwInput.title : '—';
+
+  if (!inputs.length){
+    grid.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">
+      <span class="msr lg" style="display:block;margin-bottom:8px;opacity:0.3;">cast</span>
+      Connect to vMix to load inputs
+    </div>`;
+    state._lastGridSig='';
+    return;
+  }
+
+  // ── FAST PATH ──────────────────────────────────────────────
+  // The card *structure* only changes when inputs are added/removed/renamed.
+  // Volatile state (PGM/PVW, playing, loop, audio) changes constantly. If the
+  // structure is unchanged, update just those classes/icons in place instead of
+  // blowing away the whole grid — this kills the every-10s flicker & tap-loss.
+  const structSig = inputs.map(i=>i.num+':'+i.title+':'+i.type+':'+i.duration).join('|');
+  if (structSig === state._lastGridSig && grid.children.length === inputs.length){
+    inputs.forEach(inp=>updateVicCard(inp));
+    return;
+  }
+  state._lastGridSig = structSig;
+
+  const isMediaType = (t,title) => !!(
+    (t && ['Video','Audio'].some(m=>t.includes(m))) ||
+    (title && title.match(/\.(mp4|mp3|avi|mov|wav|aac|flac|mkv|webm)/i))
+  );
+
+  grid.innerHTML = inputs.map(inp => {
+    const isPgm = inp.num === state.vmixActive;
+    const isPvw = inp.num === state.vmixPreview;
+    const isAudioOnly = !!state.inputAudioOnly[inp.title];
+    const isPlaying   = !!state.inputPlaying[inp.title];
+    const cardClass = isPgm ? 'vmix-input-card is-pgm' : isPvw ? 'vmix-input-card is-pvw' : 'vmix-input-card';
+    const statusBadge = isPgm
+      ? `<span class="vic-status-badge pgm"><span class="msr sm" style="font-size:8px;">fiber_manual_record</span>PGM</span>`
+      : isPvw
+      ? `<span class="vic-status-badge pvw"><span class="msr sm" style="font-size:8px;">preview</span>PVW</span>`
+      : '';
+    const addPlBtn = isMediaType(inp.type, inp.title)
+      ? `<button class="vic-addpl-btn" onclick="vicAddToPlaylist('${inp.title}')" title="Add to Playlist"><span class="msr sm" style="font-size:10px;">playlist_add</span>+PL</button>`
+      : '';
+    const durationBadge = (isMediaType(inp.type, inp.title) && inp.duration > 0)
+      ? `<span class="vic-duration" title="ความยาวไฟล์ทั้งหมด"><span class="msr sm" style="font-size:10px;">schedule</span>${fmtHMS(inp.duration)}</span>`
+      : '';
+    const isLoop = !!state.inputLoop[inp.title];
+    const playingRow = isPlaying ? `
+      <div class="vic-playing-row">
+        <div class="vic-playing-indicator">
+          <div class="playing-wave" style="height:10px;"><span></span><span></span><span></span></div>
+          <span style="font-size:9px;color:var(--accent-green);">${isAudioOnly?'AUDIO ONLY':'PLAYING'}</span>
+        </div>
+      </div>` : '';
+
+    return `<div class="${cardClass}" id="vic-${inp.num}">
+      <div class="vic-meta-row">
+        <span class="vic-num">#${inp.num}</span>
+        <span class="vic-type-badge">${inp.type||'Input'}</span>
+        ${durationBadge}
+        <span class="vic-meta-spacer"></span>
+        ${statusBadge}
+      </div>
+      <div class="vic-title-row">
+        <span class="vic-title">${inp.title}</span>
+        ${addPlBtn}
+      </div>
+      ${playingRow}
+      <div class="vic-controls">
+        <button class="vic-btn overlay" onclick="vicOverlay('${inp.title}')" title="Overlay บน PGM">
+          <span class="msr sm">layers</span><span class="vic-btn-label">Overlay</span>
+        </button>
+        <button class="vic-btn cut" onclick="vicCut('${inp.title}')" title="Cut ไปยัง PGM">
+          <span class="msr sm">flash_on</span><span class="vic-btn-label">Cut</span>
+        </button>
+        <button class="vic-btn fade-in" onclick="vicFade('${inp.title}')" title="Fade 500ms">
+          <span class="msr sm">gradient</span><span class="vic-btn-label">Fade</span>
+        </button>
+        <button class="vic-btn reset" onclick="vicReset('${inp.title}')" title="Reset ตำแหน่ง 0">
+          <span class="msr sm">restart_alt</span><span class="vic-btn-label">Reset</span>
+        </button>
+        <button class="vic-btn audio ${isAudioOnly?'active':''}" onclick="vicAudio('${inp.title}','${inp.num}')" title="เล่นเฉพาะเสียง">
+          <span class="msr sm">${isAudioOnly?'volume_up':'volume_off'}</span><span class="vic-btn-label">Audio</span>
+        </button>
+        <button class="vic-btn loop ${isLoop?'active':''}" onclick="vicLoop('${inp.title}')" title="Loop on/off">
+          <span class="msr sm">${isLoop?'repeat_on':'repeat'}</span><span class="vic-btn-label">Loop</span>
+        </button>
+        <button class="vic-btn playpause ${isPlaying?'active':''}" onclick="vicPlayPause('${inp.title}','${inp.num}')" title="Play / Pause">
+          <span class="msr sm">${isPlaying?'pause':'play_arrow'}</span><span class="vic-btn-label">${isPlaying?'Pause':'Play'}</span>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Patch a single VIC card's volatile state in place (no innerHTML rebuild).
+function updateVicCard(inp){
+  const card=document.getElementById('vic-'+inp.num);
+  if(!card) return;
+  const isPgm=inp.num===state.vmixActive;
+  const isPvw=inp.num===state.vmixPreview;
+  const isAudioOnly=!!state.inputAudioOnly[inp.title];
+  const isPlaying=!!state.inputPlaying[inp.title];
+  const isLoop=!!state.inputLoop[inp.title];
+
+  card.className = isPgm ? 'vmix-input-card is-pgm' : isPvw ? 'vmix-input-card is-pvw' : 'vmix-input-card';
+
+  // status badge (PGM/PVW/none)
+  const meta=card.querySelector('.vic-meta-row');
+  if(meta){
+    let badge=meta.querySelector('.vic-status-badge');
+    const want = isPgm?'pgm':isPvw?'pvw':'';
+    if(!want){ if(badge) badge.remove(); }
+    else{
+      const html = isPgm
+        ? `<span class="vic-status-badge pgm"><span class="msr sm" style="font-size:8px;">fiber_manual_record</span>PGM</span>`
+        : `<span class="vic-status-badge pvw"><span class="msr sm" style="font-size:8px;">preview</span>PVW</span>`;
+      if(badge) badge.outerHTML=html; else meta.insertAdjacentHTML('beforeend',html);
+    }
+  }
+
+  // playing indicator row (add/remove)
+  let prow=card.querySelector('.vic-playing-row');
+  if(isPlaying && !prow){
+    const titleRow=card.querySelector('.vic-title-row');
+    titleRow.insertAdjacentHTML('afterend',
+      `<div class="vic-playing-row"><div class="vic-playing-indicator">
+        <div class="playing-wave" style="height:10px;"><span></span><span></span><span></span></div>
+        <span style="font-size:9px;color:var(--accent-green);">${isAudioOnly?'AUDIO ONLY':'PLAYING'}</span>
+      </div></div>`);
+  } else if(!isPlaying && prow){ prow.remove(); }
+  else if(isPlaying && prow){
+    const lbl=prow.querySelector('span[style*="accent-green"]');
+    if(lbl) lbl.textContent=isAudioOnly?'AUDIO ONLY':'PLAYING';
+  }
+
+  // toggle button active states + icons
+  const audioBtn=card.querySelector('.vic-btn.audio');
+  if(audioBtn){ audioBtn.classList.toggle('active',isAudioOnly);
+    const i=audioBtn.querySelector('.msr'); if(i) i.textContent=isAudioOnly?'volume_up':'volume_off'; }
+  const loopBtn=card.querySelector('.vic-btn.loop');
+  if(loopBtn){ loopBtn.classList.toggle('active',isLoop);
+    const i=loopBtn.querySelector('.msr'); if(i) i.textContent=isLoop?'repeat_on':'repeat'; }
+  const ppBtn=card.querySelector('.vic-btn.playpause');
+  if(ppBtn){ ppBtn.classList.toggle('active',isPlaying);
+    const i=ppBtn.querySelector('.msr'); if(i) i.textContent=isPlaying?'pause':'play_arrow';
+    const l=ppBtn.querySelector('.vic-btn-label'); if(l) l.textContent=isPlaying?'Pause':'Play'; }
+}
+
+function vicAddToPlaylist(title){
+  if(state.playlist.find(p=>p.name===title)){showToast('Already in playlist','info');return;}
+  state.playlist.push({id:Date.now()+Math.random(),name:title,type:'video',volume:100,playing:false,fromVmix:true});
+  renderPlaylist();
+  showToast('+PL: '+title,'success');
+}
+
+// 1. Overlay — ซ้อนภาพบน PGM โดยไม่เปลี่ยน main output
+function vicOverlay(title){
+  vmixFire('OverlayInput1',{Input:inputRef(title)});
+  showToast(`Overlay → ${title}`,'info');
+  addLog('info',`Overlay: ${title}`);
+}
+
+// 2. Audio — สลับ audio-only mode
+function vicAudio(title, num){
+  const ref=inputRef(title);
+  const wasAudio = !!state.inputAudioOnly[title];
+  const isPlaying = !!state.inputPlaying[title];
+  if (!wasAudio) {
+    state.inputAudioOnly[title] = true;
+    if (isPlaying) {
+      vmixFire('AudioBusOn',{Input:ref,Value:'A'});
+      vmixFire('AudioOn',{Input:ref});
+      showToast(`Audio ON: ${title}`,'info');
+    } else {
+      showToast(`Audio mode ready — tap Play: ${title}`,'info');
+    }
+  } else {
+    state.inputAudioOnly[title] = false;
+    vmixFire('AudioBusOff',{Input:ref,Value:'A'});
+    vmixFire('AudioOff',{Input:ref});
+    showToast(`Audio OFF: ${title}`,'info');
+  }
+  renderVicGrid();
+}
+
+// 3. Cut — Cut ก่อนทันที แล้วค่อยตั้ง volume/audio (ลด delay สูงสุด)
+function vicCut(title){
+  const ref=inputRef(title);
+  vmixFire('Cut',{Input:ref});           // ⚡ cut ไปก่อนเลย ไม่รอ
+  vmixFire('SetVolume',{Input:ref,Value:'100'});
+  vmixFire('AudioBusOn',{Input:ref,Value:'A'});
+  vmixFire('AudioOn',{Input:ref});
+  state.inputPlaying[title] = true;
+  state.inputAudioOnly[title] = false;
+  showToast(`Cut → ${title}`,'info');
+  renderVicGrid();
+  scheduleStateRefresh(450);
+}
+
+// 4. Fade — Fade ก่อน แล้วค่อยตั้ง volume/audio
+function vicFade(title){
+  const ref=inputRef(title);
+  vmixFire('Fade',{Input:ref,Duration:'500'}); // ⚡ fade ก่อนเลย
+  vmixFire('SetVolume',{Input:ref,Value:'100'});
+  vmixFire('AudioBusOn',{Input:ref,Value:'A'});
+  vmixFire('AudioOn',{Input:ref});
+  state.inputPlaying[title] = true;
+  state.inputAudioOnly[title] = false;
+  showToast(`Fade → ${title}`,'info');
+  renderVicGrid();
+  scheduleStateRefresh(750);
+}
+
+// 5. Reset — fire-and-forget ทั้งคู่ ไม่ต้องรอ
+function vicReset(title){
+  const ref=inputRef(title);
+  vmixFire('Pause',{Input:ref});
+  vmixFire('SetPosition',{Input:ref,Value:'0'});
+  state.inputPlaying[title] = false;
+  showToast(`Reset: ${title}`,'info');
+  renderVicGrid();
+}
+
+// 6. Loop — toggle loop on/off
+function vicLoop(title){
+  const ref=inputRef(title);
+  const isLoop = !!state.inputLoop[title];
+  if (!isLoop) {
+    vmixFire('LoopOn',{Input:ref});
+    state.inputLoop[title] = true;
+    showToast(`Loop ON: ${title}`,'info');
+  } else {
+    vmixFire('LoopOff',{Input:ref});
+    state.inputLoop[title] = false;
+    showToast(`Loop OFF: ${title}`,'info');
+  }
+  renderVicGrid();
+}
+
+// 7. Play/Pause
+function vicPlayPause(title, num){
+  const ref=inputRef(title);
+  const isPlaying = !!state.inputPlaying[title];
+  const isAudioOnly = !!state.inputAudioOnly[title];
+  if (isPlaying) {
+    vmixFire('Pause',{Input:ref});
+    if (isAudioOnly) vmixFire('AudioBusOff',{Input:ref,Value:'A'});
+    state.inputPlaying[title] = false;
+    showToast(`Pause: ${title}`,'info');
+  } else {
+    if (isAudioOnly) {
+      vmixFire('Play',{Input:ref});      // play ก่อน
+      vmixFire('SetVolume',{Input:ref,Value:'100'});
+      vmixFire('AudioBusOn',{Input:ref,Value:'A'});
+      vmixFire('AudioOn',{Input:ref});
+    } else {
+      vmixFire('Play',{Input:ref});
+    }
+    state.inputPlaying[title] = true;
+    showToast(`Play: ${title}`,'info');
+  }
+  renderVicGrid();
+}
+
+
+function adjustScore(team, delta) {
+  state._scoreEditedAt = Date.now();   // กันไม่ให้ poll ถัดไปทับคะแนนที่เพิ่งกดเอง
+  if (team==='home') {
+    state.homeScore = Math.max(0,state.homeScore+delta);
+    document.getElementById('sbHomeScore').textContent = state.homeScore;
+  } else {
+    state.awayScore = Math.max(0,state.awayScore+delta);
+    document.getElementById('sbAwayScore').textContent = state.awayScore;
+  }
+  // ส่ง Score ไปทั้ง SB-LOGO และ SB-TileName พร้อมกันเสมอ
+  for(const inp of ['SB-LOGO.gtzip','SB-TileName.gtzip']){
+    vmixFire('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)});
+    vmixFire('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)});
+  }
+  scheduleStateRefresh(500);   // ดึง state กลับเร็วๆ เพื่อยืนยัน + ให้เครื่องอื่นเห็นตาม
+}
+
+function getSBInput(){return state.titleType==='logo'?'SB-LOGO.gtzip':'SB-TileName.gtzip';}
+function getPAInput(){return state.titleType==='logo'?'PA-LOGO.gtzip':'PA-TileName.gtzip';}
+
+// Base path คงที่ — โปรแกรม vMixController เก็บโลโก้ไว้ที่ C:\vMixData\logos เสมอ
+const LOGO_BASE = 'C:\\vMixData\\logos';
+function getLogoFullPath(filename) {
+  if (!filename) return '';
+  return LOGO_BASE + '\\' + filename;
+}
+// URL สำหรับ preview ในแอพ — เสิร์ฟโดย vMixController ที่ /logos/<file>
+function logoUrl(filename){ return filename ? ('/logos/'+encodeURIComponent(filename)) : ''; }
+
+
+// ═══════════════════════════════
+// SB PREVIEW
+// ═══════════════════════════════
+function updateSBPreview() {
+  const compFile=(document.getElementById('compLogoFilename')?.value||'').trim();
+  const homeFile=(document.getElementById('homeLogoFilename')?.value||'').trim();
+  const awayFile=(document.getElementById('awayLogoFilename')?.value||'').trim();
+  const cnEl=document.getElementById('sbCompName');
+  if(cnEl){
+    const cn=(document.getElementById('compName')?.value||'').trim();
+    if(state.titleType==='logo' && compFile){
+      // Logo mode: แสดงโลโก้รายการแทนข้อความ — คุมความสูงต่ำ ไม่ให้กินที่ในแนวนอน
+      cnEl.innerHTML=`<img src="${logoUrl(compFile)}" alt="" onerror="this.parentNode.textContent='— LOGO —'">`;
+      cnEl.style.opacity='1';
+    }else{
+      cnEl.textContent = cn || (state.titleType==='logo' ? '— LOGO —' : '— COMPETITION —');
+      cnEl.style.opacity = cn ? '1' : '0.35';
+    }
+  }
+  document.getElementById('sbHomeName').textContent = state.homeName;
+  document.getElementById('sbAwayName').textContent = state.awayName;
+  document.getElementById('sbHomeScore').textContent = state.homeScore;
+  document.getElementById('sbAwayScore').textContent = state.awayScore;
+  document.getElementById('sbHomeBar').style.background = state.homeColor;
+  document.getElementById('sbAwayBar').style.background = state.awayColor;
+  if (homeFile) document.getElementById('sbHomeLogo').innerHTML=`<img src="${logoUrl(homeFile)}" onerror="this.remove()">`;
+  if (awayFile) document.getElementById('sbAwayLogo').innerHTML=`<img src="${logoUrl(awayFile)}" onerror="this.remove()">`;
+  // settings-tab thumbs
+  const thumb=(id,file)=>{const el=document.getElementById(id);
+    if(el&&file) el.innerHTML=`<img src="${logoUrl(file)}" style="width:100%;height:100%;object-fit:contain;" onerror="this.remove()">`;};
+  thumb('compLogoPreview',compFile); thumb('homeLogoPreview',homeFile); thumb('awayLogoPreview',awayFile);
+}
+
+// ═══════════════════════════════
+// CONFIRM GUARD
+// ═══════════════════════════════
+const confirmConfig = {
+  goal: {
+    icon:'sports_score',
+    title:'GOAL! Macro',
+    body:'กำลังจะเล่น Goal.mp4 และ Fade กลับ Scoreboard\nยืนยันหรือไม่?',
+    yes:'ยืนยัน GOAL!',
+  },
+  startmatch: {
+    icon:'rocket_launch',
+    title:'Start Match',
+    body:'กำลังจะเริ่มการแข่งขันและเริ่มนับเวลา\nยืนยันหรือไม่?',
+    yes:'เริ่มเลย!',
+  },
+  ftb: {
+    icon:'tv_off',
+    title:'Fade To Black',
+    body:'กำลังจะตัดภาพออกอากาศเป็นจอดำทั้งหมด\nยืนยันหรือไม่?',
+    yes:'ตัดจอดำ',
+  },
+  clearpl: {
+    icon:'delete_sweep',
+    title:'Clear Playlist',
+    body:'กำลังจะลบทุกไฟล์ออกจาก Playlist\nยืนยันหรือไม่?',
+    yes:'ลบทั้งหมด',
+  },
+  clockstart: {
+    icon:'play_arrow',
+    title:'Start Clock',
+    body:'กำลังจะเริ่มเดินนาฬิกาการแข่งขัน\nยืนยันหรือไม่?',
+    yes:'เริ่มเดิน',
+  },
+  clockpause: {
+    icon:'pause',
+    title:'Pause Clock',
+    body:'กำลังจะหยุดนาฬิกาชั่วคราว\n(กดตอนหยุดอยู่ = เริ่มเดินต่อ)\nยืนยันหรือไม่?',
+    yes:'ยืนยัน',
+  },
+  clockreset: {
+    icon:'replay',
+    title:'Reset Clock',
+    body:'กำลังจะรีเซ็ตเวลากลับจุดเริ่มของ Period นี้\nยืนยันหรือไม่?',
+    yes:'รีเซ็ต',
+  },
+  period: {
+    icon:'schedule',
+    title:'Change Period',
+    body:'', // เติมข้อความตาม period ที่กดใน confirmAction
+    yes:'เปลี่ยน Period',
+  },
+};
+
+function confirmAction(action, arg) {
+  state.pendingAction = action;
+  state.pendingArg = arg;
+  const cfg = confirmConfig[action];
+  document.getElementById('confirmIcon').textContent = cfg.icon;
+  document.getElementById('confirmTitle').textContent = cfg.title;
+  let body = cfg.body;
+  if (action==='period') {
+    const labels=['1ST','2ND','3RD','4TH'];
+    body = `กำลังจะเปลี่ยนเป็น ${labels[arg-1]} PERIOD\n(ถ้านาฬิกาไม่ได้เดิน เวลาจะถูกตั้งไปจุดเริ่ม Period)\nยืนยันหรือไม่?`;
+  }
+  document.getElementById('confirmBody').textContent = body;
+  document.getElementById('confirmYesBtn').innerHTML = `<span class="msr sm" style="vertical-align:-3px;">check</span> ${cfg.yes}`;
+  document.getElementById('confirmOverlay').style.display = 'flex';
+}
+function confirmCancel() {
+  state.pendingAction = null;
+  document.getElementById('confirmOverlay').style.display = 'none';
+}
+function confirmProceed() {
+  document.getElementById('confirmOverlay').style.display = 'none';
+  const a = state.pendingAction, arg = state.pendingArg;
+  state.pendingAction = null; state.pendingArg = null;
+  if (a==='goal') triggerGoal();
+  if (a==='startmatch') startMatch();
+  if (a==='ftb') doFTB();
+  if (a==='clearpl') doClearPlaylist();
+  if (a==='clockstart') clockStart();
+  if (a==='clockpause') clockPause();
+  if (a==='clockreset') clockReset();
+  if (a==='period') selectPeriod(arg);
+}
+
+// ═══════════════════════════════
+// FTB — Fade To Black (ปุ่มฉุกเฉินที่ header)
+// เปิด (ไปจอดำ) = ต้อง confirm กันกดพลาดออกอากาศ
+// ปิด (คืนภาพ) = ทันที ไม่ถาม — เพราะตอนฉุกเฉินต้องคืนภาพให้เร็วที่สุด
+// ═══════════════════════════════
+function toggleFTB(){
+  if(state.ftbActive){ doFTB(); }          // คืนภาพทันที
+  else { confirmAction('ftb'); }           // ไปจอดำ → ถามก่อน
+}
+function doFTB(){
+  vmixFire('FadeToBlack');                 // vMix toggle
+  state.ftbActive=!state.ftbActive;
+  updateFTBButton();
+  showToast(state.ftbActive?'FTB — จอดำ':'FTB ปิด — ภาพกลับมา', state.ftbActive?'error':'success');
+  addLog(state.ftbActive?'err':'ok', state.ftbActive?'FadeToBlack ON':'FadeToBlack OFF');
+  scheduleStateRefresh(600);
+}
+function updateFTBButton(){
+  const b=document.getElementById('ftbBtn');
+  if(b) b.classList.toggle('active', !!state.ftbActive);
+}
+
+// ═══════════════════════════════
+// GOAL MACRO
+// ═══════════════════════════════
+async function triggerGoal() {
+  const btn = document.getElementById('goalBtn');
+  btn.disabled = true;
+  const sbInput = getSBInput();
+  const goalDur = parseInt(document.getElementById('goalDuration').value)||13000;
+  const GOAL_FADE_MS = 250;
+
+  // Confirmed → Cut to Goal.mp4 instantly, no waiting.
+  vmixFire('SetPosition',{Input:'Goal.mp4',Value:'0'});
+  vmixFire('Play',{Input:'Goal.mp4'});
+  vmixFire('Cut',{Input:'Goal.mp4'});
+  addLog('ok','Cut → Goal.mp4 (instant)');
+  showToast('GOAL! Macro triggered','success');
+
+  setTimeout(async()=>{
+    await vmixApi('Fade',{Input:sbInput,Duration:String(GOAL_FADE_MS)});
+    addLog('ok',`Fade(${GOAL_FADE_MS}ms) → ${sbInput}`);
+    setTimeout(async()=>{
+      await vmixApi('Pause',{Input:'Goal.mp4'});
+      await vmixApi('SetPosition',{Input:'Goal.mp4',Value:'0'});
+      addLog('info','Goal.mp4 reset');
+      btn.disabled = false;
+    }, GOAL_FADE_MS+300);
+  }, goalDur);
+}
+
+// ═══════════════════════════════
+// START MATCH
+// ═══════════════════════════════
+async function startMatch() {
+  const sbInput=getSBInput();
+
+  if (state.matchMode==='thai') {
+    // Countdown duration (Timing Settings) ใช้เฉพาะ Thai League Mode เท่านั้น
+    const cdDur=parseInt(document.getElementById('countdownDuration').value)||7000;
+    // กติกาคงที่: ไม่ว่า Countdown duration จะตั้งเท่าไหร่ Start ต้องเริ่มจับเวลาแข่งขันจริง
+    // ที่ (Countdown duration − 1750ms) เสมอ — 1750ms คือค่าที่ตรงกับ "Kick Off" ในวิดีโอ Countdown.mp4
+    const PRESTART_MS = 1750;
+
+    // ── ZERO-DELAY PATH: referee whistles → Cut to Countdown.mp4 NOW ──
+    // No awaits, no data sync, no fade — fire instantly.
+    vmixFire('SetPosition',{Input:'Countdown.mp4',Value:'0'});
+    vmixFire('Play',{Input:'Countdown.mp4'});
+    vmixFire('Cut',{Input:'Countdown.mp4'});
+    addLog('ok','Cut → Countdown.mp4 (instant)');
+    showToast('Countdown started!','success');
+
+    // Everything non-urgent (team names, dates, scores) syncs in the
+    // background while Countdown.mp4 is already playing on screen.
+    sendAllToVmixSilent();
+
+    // ── TIMING FIX FOR NATURAL-LOOKING TRANSITION ──
+    // The countdown starts (StartCountdown) at cdDur-PRESTART_MS (1750ms) — fixed,
+    // since that's what lines up with "Kick Off" appearing in Countdown.mp4.
+    // It starts from a true 00:00 (no offset injected here).
+    const SB_FADE_MS = 250;
+    const cutInAt = Math.max(0, cdDur - PRESTART_MS); // (Countdown duration − 1750ms), always
+    setTimeout(async()=>{
+      await selectPeriod(1);
+      await clockStart(); // vMix starts counting from a true 00:00, silently
+    }, cutInAt);
+
+    const fadeAt = Math.max(0, cdDur - SB_FADE_MS + 50); // fade window straddles the clock's first tick
+    setTimeout(async()=>{
+      await vmixApi('Fade',{Input:sbInput,Duration:String(SB_FADE_MS)});
+      addLog('ok',`Fade(${SB_FADE_MS}ms) → ${sbInput}`);
+      await vmixApi('Pause',{Input:'Countdown.mp4'});
+      await vmixApi('SetPosition',{Input:'Countdown.mp4',Value:'0'});
+      addLog('info','Countdown.mp4 reset to 00:00');
+      showToast('Match Live!','success');
+    }, fadeAt);
+
+  } else {
+    // General Mode: ไม่เกี่ยวข้องกับ Countdown เลย — ไม่มี Countdown.mp4, ไม่ใช้ Countdown duration
+    // PA → Cut → SB instantly, clock starts pre-warmed with its own fixed delay.
+    const GENERAL_PRESTART_MS = 2000; // ดีเลย์ก่อนเผย SB ให้นาฬิกาเริ่มจาก ~00:02 แทนกระโดดจาก 00:00
+    showToast('Starting Match...','info');
+    sendAllToVmixSilent();
+    await selectPeriod(1);
+    await clockStart(GENERAL_PRESTART_MS/1000);
+    // Let it run silently for GENERAL_PRESTART_MS before revealing SB, same trick.
+    setTimeout(()=>{
+      vmixFire('Cut',{Input:sbInput});
+      addLog('ok',`Cut → ${sbInput} (showing ~00:02 already)`);
+      showToast('Match Live!','success');
+    }, GENERAL_PRESTART_MS);
+  }
+}
+
+
+// ═══════════════════════════════
+// SETUP
+// ═══════════════════════════════
+function updateModeBadge(){
+  const el=document.getElementById('modeBadge');
+  if(el) el.textContent =
+    (state.matchMode==='thai'?'Thai League':'General') + ' · ' +
+    (state.titleType==='logo'?'Logo':'Title');
+}
+function setTitleType(type){
+  state.titleType=type;
+  updateModeBadge();
+  // Competition Setup: โชว์เฉพาะส่วนที่ตรงกับ Title Type
+  //   Logo → เฉพาะส่วนโลโก้ / Title → เฉพาะช่องชื่อรายการ
+  const lg=document.getElementById('compLogoGroup');
+  const nm=document.getElementById('compNameGroup');
+  if(lg) lg.style.display = type==='logo' ? '' : 'none';
+  if(nm) nm.style.display = type==='logo' ? 'none' : '';
+  updateSBPreview();   // สลับแถบบน Score Card: ชื่อรายการ ↔ โลโก้
+}
+function setMatchMode(mode){
+  state.matchMode=mode;
+  updateModeBadge();
+  const f=document.getElementById('flowDiagram');
+  f.innerHTML=mode==='thai'
+    ?`<div class="flow-step"><span class="msr sm flow-arrow">radio_button_checked</span><span class="flow-name">PA Screen</span></div>
+      <div class="flow-step"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Countdown.mp4</span></div>
+      <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>`
+    :`<div class="flow-step"><span class="msr sm flow-arrow">radio_button_checked</span><span class="flow-name">PA Screen</span></div>
+      <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>`;
+}
+function updatePreview(){
+  const dow=document.getElementById('matchDayOfWeek').value;
+  const d=document.getElementById('matchDay').value;
+  const m=document.getElementById('matchMonth').value;
+  const y=document.getElementById('matchYear').value;
+  const k=document.getElementById('kickOff').value;
+  const dowPart = dow ? dow+' ' : '';
+  document.getElementById('datePreview').textContent=
+    (d&&m&&y)?`${dowPart}${d} ${m} ${y}  |  Kick Off ${k||'–'}`:'— กรอกข้อมูลวันที่ —';
+}
+function updateTeamDisplay(){
+  state.homeName=document.getElementById('homeName').value||'HOME';
+  state.awayName=document.getElementById('awayName').value||'AWAY';
+  document.getElementById('homeNameDisplay').textContent=state.homeName;
+  document.getElementById('awayNameDisplay').textContent=state.awayName;
+  updateSBPreview();
+}
+function syncColor(team){
+  const hex=document.getElementById(team+'ColorHex').value;
+  document.getElementById(team+'ColorPicker').value=hex;
+  document.getElementById(team+'ColorDot').style.background=hex;
+  state[team+'Color']=hex; updateSBPreview();
+}
+function syncColorFromPicker(team){
+  const hex=document.getElementById(team+'ColorPicker').value;
+  document.getElementById(team+'ColorHex').value=hex;
+  document.getElementById(team+'ColorDot').style.background=hex;
+  state[team+'Color']=hex; updateSBPreview();
+}
+// (โลโก้อัปโหลด/Drag&Drop ที่โปรแกรม vMixController บนคอมพิวเตอร์ — แอพนี้แสดง preview จาก /logos เท่านั้น)
+async function syncAllToVmix(){
+  const btn = document.getElementById('syncBtn');
+  btn.classList.add('syncing');
+  const oldHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="msr sync-icon">sync</span> Syncing...';
+  try {
+    await sendAllToVmixSilent();
+    showToast('Synced all data to vMix','success');
+  } catch(e) {
+    showToast('Sync failed: '+e.message,'error');
+  } finally {
+    btn.classList.remove('syncing');
+    btn.innerHTML = oldHTML;
+  }
+}
+async function sendAllToVmixSilent(){
+  const paLogo     = 'PA-LOGO.gtzip';
+  const paTileName = 'PA-TileName.gtzip';
+  const sbLogo     = 'SB-LOGO.gtzip';
+  const sbTileName = 'SB-TileName.gtzip';
+  const allPA  = [paLogo, paTileName];
+  const allSB  = [sbLogo, sbTileName];
+  const allFiles = [paLogo, paTileName, sbLogo, sbTileName];
+
+  const cn  = document.getElementById('compName').value;
+  const hn  = document.getElementById('homeName').value;
+  const an  = document.getElementById('awayName').value;
+  const dow = document.getElementById('matchDayOfWeek').value;
+  const d   = document.getElementById('matchDay').value;
+  const m   = document.getElementById('matchMonth').value;
+  const y   = document.getElementById('matchYear').value;
+  const k   = document.getElementById('kickOff').value;
+  const compLogoFile = document.getElementById('compLogoFilename').value;
+  const homeLogoFile = document.getElementById('homeLogoFilename').value;
+  const awayLogoFile = document.getElementById('awayLogoFilename').value;
+
+  addLog('info','Sync → ทุกไฟล์ gtzip...');
+  const jobs=[];  // fire all field writes concurrently — they don't depend on each other
+
+  // ── PA-only fields → PA-LOGO + PA-TileName ──
+  for(const inp of allPA){
+    if(dow) jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Day.Text',Value:dow}));
+    if(d)   jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Date.Text',Value:d}));
+    if(m)   jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Month-Match.Text',Value:m}));
+    if(y)   jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Year-Match.Text',Value:y}));
+    if(k)   jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Kick-Off.Text',Value:k}));
+  }
+
+  // ── Shared fields → ทุกไฟล์ ──
+  for(const inp of allFiles){
+    if(cn) jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Title-Match.Text',Value:cn}));
+    if(hn) jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Title-Home.Text',Value:hn}));
+    if(an) jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Title-Away.Text',Value:an}));
+    jobs.push(vmixApi('SetColor',{Input:inp,SelectedName:'Home-Color.Fill.Color',Value:state.homeColor}));
+    jobs.push(vmixApi('SetColor',{Input:inp,SelectedName:'Away-Color.Fill.Color',Value:state.awayColor}));
+    if(compLogoFile) jobs.push(vmixApi('SetImage',{Input:inp,SelectedName:'Logo-Match.Source',Value:getLogoFullPath(compLogoFile)}));
+    if(homeLogoFile) jobs.push(vmixApi('SetImage',{Input:inp,SelectedName:'Logo-Home.Source',Value:getLogoFullPath(homeLogoFile)}));
+    if(awayLogoFile) jobs.push(vmixApi('SetImage',{Input:inp,SelectedName:'Logo-Away.Source',Value:getLogoFullPath(awayLogoFile)}));
+  }
+
+  // ── SB-only fields (Score) → SB-LOGO + SB-TileName ──
+  for(const inp of allSB){
+    jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)}));
+    jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)}));
+  }
+
+  await Promise.all(jobs);
+  addLog('ok',`Sync เสร็จสิ้น (${jobs.length} fields, parallel)`);
+}
+
+// ═══════════════════════════════
+// MEDIA
+// ═══════════════════════════════
+
+
+// Reflect playlist run state in the header pill: PLAYING (green) / AUDIO ONLY (cyan) / IDLE
+function updatePlStatus(){
+  const el=document.getElementById('plStatus'); if(!el) return;
+  if(state.plRunning){
+    if(state.plAudioOnly){ el.textContent='● AUDIO ONLY'; el.className='pl-status audio'; }
+    else { el.textContent='● PLAYING'; el.className='pl-status playing'; }
+  } else {
+    el.textContent = state.plAudioOnly ? 'AUDIO ONLY' : 'IDLE';
+    el.className = state.plAudioOnly ? 'pl-status audio' : 'pl-status';
+  }
+}
+function renderPlaylist(){
+  updatePlStatus();
+  const c=document.getElementById('playlistQueue');
+  document.getElementById('plBadge').textContent=state.playlist.length;
+  if(!state.playlist.length){c.innerHTML=`<div style="text-align:center;padding:10px;color:var(--text-muted);font-size:11px;">Add items from Input Control cards above</div>`;return;}
+  c.innerHTML=state.playlist.map((item,i)=>{
+    const playing = state.plRunning&&state.plIndex===i;
+    const icon = playing&&state.plAudioOnly ? 'graphic_eq' : (item.type==='video'?'videocam':'music_note');
+    return `
+    <div class="pl-item ${playing?'playing':''}"
+         id="pl-${i}" draggable="true"
+         ondragstart="plDragStart(event,${i})" ondragover="plDragOver(event,${i})"
+         ondrop="plDrop(event,${i})" ondragend="plDragEnd()">
+      <span class="msr sm pl-item-handle" title="ลากเพื่อจัดลำดับ">drag_indicator</span>
+      <span class="pl-item-num">${i+1}</span>
+      <span class="pl-item-name"><span class="msr sm" style="vertical-align:-3px;">${icon}</span> ${item.name}</span>
+      <span class="msr sm pl-item-remove" onclick="removeFromPlaylist(${i})">close</span>
+    </div>`;}).join('');
+}
+// Playlist-level Audio Only. When ON, the whole playlist plays as background sound
+// (Bus A) and PGM stays on the PA/Scoreboard. When toggled OFF mid-playback:
+//   - if the current item is a VIDEO → Cut it to PGM immediately
+//   - if it's audio → leave PGM as-is (nothing to show)
+function togglePlaylistAudioOnly(){
+  state.plAudioOnly=!state.plAudioOnly;
+  const btn=document.getElementById('plAudioBtn');
+  btn.classList.toggle('audio-on',state.plAudioOnly);
+  const ic=btn.querySelector('.msr'); if(ic) ic.textContent=state.plAudioOnly?'volume_up':'volume_off';
+
+  const cur = state.plRunning && state.plIndex>=0 ? state.playlist[state.plIndex] : null;
+  if(cur){
+    const ref=inputRef(cur.name);
+    if(state.plAudioOnly){
+      // just switched INTO audio-only while a video is on PGM — audio keeps playing,
+      // but we don't force PGM back; operator decides the base layer. Ensure Bus A on.
+      vmixFire('AudioBusOn',{Input:ref,Value:'A'});
+      vmixFire('AudioOn',{Input:ref});
+      showToast('Audio Only ON — เล่นเป็นเสียงเบื้องหลัง','info');
+    } else {
+      // switched OUT of audio-only — Cut the current item to PGM.
+      // Video shows its picture; an audio file has no video so PGM goes black on its own.
+      vmixFire('Cut',{Input:ref});
+      showToast(cur.type==='video'?`Audio Only OFF — Cut → ${cur.name}`:`Audio Only OFF — Cut → ${cur.name} (จอดำ)`,'info');
+    }
+  } else {
+    showToast(state.plAudioOnly?'Audio Only ON — ทั้ง Playlist เล่นเฉพาะเสียง':'Audio Only OFF','info');
+  }
+  renderPlaylist();
+}
+function clearPlaylist(){
+  if(!state.playlist.length){showToast('Playlist ว่างอยู่แล้ว','info');return;}
+  confirmAction('clearpl');   // ถามก่อนลบ — กันเผลอกดกลางเกม
+}
+function doClearPlaylist(){
+  playlistStop();
+  state.playlist=[];
+  renderPlaylist();
+  showToast('ล้าง Playlist แล้ว','success');
+}
+
+// ── Playlist drag & drop reordering ──
+let plDragIdx=null;
+function plDragStart(e,i){plDragIdx=i;e.dataTransfer.effectAllowed='move';setTimeout(()=>{const el=document.getElementById('pl-'+i);if(el)el.classList.add('dragging');},0);}
+function plDragOver(e,i){e.preventDefault();document.querySelectorAll('.pl-item').forEach(el=>el.classList.remove('drag-over'));const el=document.getElementById('pl-'+i);if(el)el.classList.add('drag-over');}
+function plDrop(e,targetIdx){
+  e.preventDefault();
+  if(plDragIdx===null||plDragIdx===targetIdx)return;
+  const[moved]=state.playlist.splice(plDragIdx,1);
+  state.playlist.splice(targetIdx,0,moved);
+  // keep the currently-playing pointer aimed at the same track after reorder
+  if(state.plRunning){
+    if(state.plIndex===plDragIdx) state.plIndex=targetIdx;
+    else if(plDragIdx<state.plIndex && targetIdx>=state.plIndex) state.plIndex--;
+    else if(plDragIdx>state.plIndex && targetIdx<=state.plIndex) state.plIndex++;
+  }
+  renderPlaylist();
+}
+function plDragEnd(){plDragIdx=null;document.querySelectorAll('.pl-item').forEach(el=>{el.classList.remove('dragging');el.classList.remove('drag-over');});}
+function removeFromPlaylist(i){
+  if(state.plRunning && i<state.plIndex) state.plIndex--;   // keep pointer correct
+  state.playlist.splice(i,1);
+  renderPlaylist();
+}
+function playlistPlay(){
+  if(!state.playlist.length){showToast('Playlist ว่างเปล่า','error');return;}
+  state.plRunning=true;state.plIndex=0;
+  document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">pause</span> <span class="pl-btn-txt">Playing</span>';
+  playPlaylistItem(0);
+}
+function playPlaylistItem(idx){
+  if(idx>=state.playlist.length){
+    if(state.plLoop){state.plIndex=0;playPlaylistItem(0);}
+    else{state.plRunning=false;state.plIndex=-1;document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">play_arrow</span> <span class="pl-btn-txt">Play</span>';renderPlaylist();showToast('Playlist finished','info');}
+    return;
+  }
+  state.plIndex=idx;const item=state.playlist[idx];renderPlaylist();
+  const ref=inputRef(item.name);
+  document.getElementById('nowPlayingSection').style.display='';
+
+  if(state.plAudioOnly){
+    // BACKGROUND AUDIO for the whole playlist: sound on Bus A only — no Cut/Fade.
+    // PGM stays on whatever is live (PA / Scoreboard). Music/ads under the scoreboard.
+    document.getElementById('nowPlayingName').textContent=item.name+'  🎵 (Audio Only)';
+    showToast(`Audio Only: ${item.name} — PGM คงเดิม`,'info');
+    vmixFire('SetPosition',{Input:ref,Value:'0'});
+    vmixFire('SetVolume',{Input:ref,Value:String(item.volume)});
+    vmixFire('AudioBusOn',{Input:ref,Value:'A'});
+    vmixFire('AudioOn',{Input:ref});
+    vmixFire('Play',{Input:ref});
+    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
+  } else if(item.type==='video'){
+    document.getElementById('nowPlayingName').textContent=item.name;
+    showToast(`Playing: ${item.name}`,'info');
+    vmixFire('SetVolume',{Input:ref,Value:String(item.volume)});
+    vmixFire('Fade',{Input:ref,Duration:'500'});vmixFire('Play',{Input:ref});
+    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
+  } else {
+    document.getElementById('nowPlayingName').textContent=item.name;
+    showToast(`Playing: ${item.name}`,'info');
+    vmixFire('SetVolume',{Input:ref,Value:String(item.volume)});
+    vmixFire('AudioBusOn',{Input:ref,Value:'A'});vmixFire('AudioOn',{Input:ref});vmixFire('Play',{Input:ref});
+    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
+  }
+}
+function playlistNext(){if(!state.plRunning)return;playPlaylistItem(state.plIndex+1);}
+function playlistStop(){
+  // If an audio-only track is live on Bus A, stop its sound too (PGM was never changed).
+  const cur=state.plIndex>=0?state.playlist[state.plIndex]:null;
+  if(cur){
+    const ref=inputRef(cur.name);
+    if(state.plAudioOnly){ vmixFire('AudioBusOff',{Input:ref,Value:'A'}); }
+    vmixFire('Pause',{Input:ref});
+  }
+  state.plRunning=false;state.plIndex=-1;
+  document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">play_arrow</span> <span class="pl-btn-txt">Play</span>';
+  renderPlaylist();document.getElementById('nowPlayingSection').style.display='none';
+  showToast('Playlist stopped','info');
+}
+function togglePlaylistLoop(){
+  state.plLoop=!state.plLoop;
+  const btn=document.getElementById('plLoopBtn');
+  btn.classList.toggle('loop-on',state.plLoop);
+  btn.innerHTML=state.plLoop?'<span class="msr sm" style="vertical-align:-3px;">repeat_on</span> <span class="pl-btn-txt">Loop ON</span>':'<span class="msr sm" style="vertical-align:-3px;">repeat</span> <span class="pl-btn-txt">Loop</span>';
+  showToast(state.plLoop?'Loop ON':'Loop OFF','info');
+}
+
+// ═══════════════════════════════
+// vMIX API
+// ═══════════════════════════════
+// vmixFire — fire-and-forget, ไม่ await, ไม่บล็อก UI
+// ใช้กับทุกคำสั่งควบคุม (Cut, Fade, Play, Volume ฯลฯ) ที่ไม่ต้องการผลตอบกลับ
+function vmixFire(func, params={}){
+  const base=state.baseUrl||refreshBaseUrl();
+  let url=`${base}/api/?Function=${encodeURIComponent(func)}`;
+  for(const[k,v]of Object.entries(params)){if(v!==undefined&&v!=='')url+=`&${k}=${encodeURIComponent(v)}`;}
+  addLog('info',`→ ${func}${params.Input?' ['+params.Input+']':''}${params.Value?' ='+params.Value:''}`);
+  fetch(url,{mode:'no-cors',method:'GET',keepalive:true}).catch(()=>{setConnected(false);});
+}
+
+async function vmixApi(func,params={}){
+  const base=state.baseUrl||refreshBaseUrl();
+  let url=`${base}/api/?Function=${encodeURIComponent(func)}`;
+  for(const[k,v]of Object.entries(params)){if(v!==undefined&&v!=='')url+=`&${k}=${encodeURIComponent(v)}`;}
+  addLog('info',`→ ${func}${params.Input?' ['+params.Input+']':''}${params.Value?' ='+params.Value:''}`);
+  try{
+    await fetch(url,{mode:'no-cors',method:'GET'});
+    if(!state.connected)setConnected(true);
+    return true;
+  }catch(err){addLog('err',`Error: ${err.message}`);setConnected(false);return false;}
+}
+
+async function fetchVmixState(){
+  const base=state.baseUrl||refreshBaseUrl();
+  // Cancel any in-flight fetch so rapid Cut/Fade taps don't stack requests
+  if(state._fetchAbort) state._fetchAbort.abort();
+  const ctrl=new AbortController();
+  state._fetchAbort=ctrl;
+  if(!state.connected) addLog('info','Fetching vMix XML...');
+  try{
+    const resp=await fetch(`${base}/api/`,{mode:'cors',signal:ctrl.signal});
+    if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
+    const text=await resp.text();
+    parseVmixXML(text);
+    if(!state.connected) setConnected(true);
+    else state.connected=true;
+  }catch(e){
+    if(e.name==='AbortError') return;   // superseded by a newer fetch — ignore
+    addLog('err','XML: '+e.message);
+  }finally{
+    if(state._fetchAbort===ctrl) state._fetchAbort=null;
+  }
+}
+
+function parseVmixXML(xmlText){
+  try{
+    const doc=new DOMParser().parseFromString(xmlText,'text/xml');
+    const inputs=doc.querySelectorAll('input');
+    const activeNum=doc.querySelector('active')?.textContent;
+    const previewNum=doc.querySelector('preview')?.textContent;
+    // FTB state — sync จาก vMix จริง (ทุกเครื่องเห็นตรงกัน)
+    const ftbNode=doc.querySelector('fadeToBlack');
+    if(ftbNode){
+      const on = ftbNode.textContent.trim()==='True';
+      if(on!==state.ftbActive){ state.ftbActive=on; updateFTBButton(); }
+    }
+    if(!inputs.length){
+      state.vmixInputs=[]; renderVicGrid();
+      return;
+    }
+
+    // ── CLOCK SYNC ──
+    // ดึงค่า Time.Text จาก SB input ที่กำลังใช้งานอยู่ใน vMix
+    // เพื่อ sync ตัวเลขในแอพกลับมาตรง หลังเปิดจอมือถือหรือ reconnect
+    // ── CLOCK DISPLAY SYNC (multi-device) ──
+    // อ่านเวลาจริงจาก vMix ทุก poll ไม่ว่าเครื่องนี้จะกด Start เองหรือไม่
+    // สำคัญ: ต้องอ่านจาก "ไฟล์ SB ที่เลือกอยู่จริง" (ตาม Title Type) เท่านั้น
+    //   ห้ามใช้ startsWith('SB-') เพราะจะไปเจอ SB-LOGO ก่อนแล้ว break
+    //   ทำให้ตอนใช้ SB-TileName อ่านเวลาจากไฟล์ผิด
+    {
+      const sbInputName = getSBInput();  // 'SB-LOGO.gtzip' หรือ 'SB-TileName.gtzip'
+      const sbBase = sbInputName.replace('.gtzip','');
+      const sbInp = Array.from(inputs).find(i=>{
+        const t=i.getAttribute('title')||'';
+        return t===sbInputName || t===sbBase;
+      });
+      if (sbInp){
+        const timeNode = sbInp.querySelector('text[name="Time"]')
+                      || sbInp.querySelector('[name="Time"]')
+                      || sbInp.querySelector('text[name="Time.Text"]');
+        if (timeNode && timeNode.textContent.trim()){
+          syncClockFromVmixText(timeNode.textContent.trim());
+        }
+      }
+    }
+
+    // ── SCORE SYNC (multi-device) ──
+    // ให้ทุกเครื่องเห็นคะแนนตรงกันโดยใช้ vMix เป็นตัวจริง: อ่าน Score จาก SB ทุก poll
+    // ยกเว้นถ้าเครื่องนี้เพิ่งกดปรับคะแนนเอง (ภายใน 3 วิ) จะไม่ทับ เพื่อกัน UI กระตุก
+    if (!state._scoreEditedAt || (Date.now() - state._scoreEditedAt > 3000)) {
+      const sbName = getSBInput();
+      const sbBase = sbName.replace('.gtzip','');
+      const sbInp = Array.from(inputs).find(i=>{
+        const t=i.getAttribute('title')||'';
+        return t===sbName || t===sbBase;
+      });
+      if (sbInp){
+        const readN=(nm)=>{
+          const n=sbInp.querySelector(`text[name="${nm}"]`)||sbInp.querySelector(`[name="${nm}"]`);
+          if(!n) return null;
+          const v=parseInt((n.textContent||'').trim());
+          return isNaN(v)?null:v;
+        };
+        const hs=readN('Score-Home'), as=readN('Score-Away');
+        if(hs!==null && hs!==state.homeScore){
+          state.homeScore=hs;
+          const el=document.getElementById('sbHomeScore'); if(el) el.textContent=hs;
+        }
+        if(as!==null && as!==state.awayScore){
+          state.awayScore=as;
+          const el=document.getElementById('sbAwayScore'); if(el) el.textContent=as;
+        }
+      }
+    }
+
+    // ── STORE INPUT STATE ──
+    state.vmixActive  = activeNum;
+    state.vmixPreview = previewNum;
+    state.vmixInputs  = [];
+    inputs.forEach(inp=>{
+      const num=inp.getAttribute('number');
+      const title=inp.getAttribute('title')||inp.textContent.trim().split('\n')[0].trim();
+      const type=inp.getAttribute('type')||'';
+      const inputState=inp.getAttribute('state')||'';
+      const key=inp.getAttribute('key')||'';
+      state.vmixInputs.push({num, title, type, state:inputState, key,
+        position:parseInt(inp.getAttribute('position'))||0,
+        duration:parseInt(inp.getAttribute('duration'))||0,
+        volume:parseFloat(inp.getAttribute('volume')),
+        // สำหรับ Photos / PowerPoint / Image Sequence
+        selectedIndex:parseInt(inp.getAttribute('selectedIndex')),   // attr น่าจะ 0-based → แสดงผล +1 (ยืนยันที่สนาม)
+        itemCount:inp.querySelectorAll('item').length,
+        loop:inp.getAttribute('loop')==='True'});
+      if(key) state.inputKey[title]=key;   // cache GUID → send it instead of the title (faster, order-proof)
+      // Track playing state from vMix XML
+      if(inputState==='Running') state.inputPlaying[title]=true;
+      else if(inputState==='Paused'||inputState==='Completed') state.inputPlaying[title]=false;
+    });
+    // Re-render input control cards
+    renderVicGrid();
+    updateTransportModel();   // อัปเดต transport bar ของ PGM (เวลา/seek/volume)
+    // Log เฉพาะตอนจำนวน input เปลี่ยน ไม่ log ทุก poll
+    if(state.vmixInputs.length !== (state._lastInputCount||0)){
+      addLog('ok',`${inputs.length} inputs`);
+      state._lastInputCount = state.vmixInputs.length;
+    }
+  }catch(e){addLog('err','XML parse: '+e.message);}
+}
+
+// ═══════════════════════════════════════════════════
+// MATCH CONFIG — โหลด/บันทึกจาก vMixController (Server)
+// Server (vMixController.exe) คือ single source of truth ของการตั้งค่าแมตช์
+// เว็บแอพโหลดตอนเปิด + refresh เป็นระยะ และ POST กลับเมื่อผู้ใช้แก้ด่วนบนมือถือ
+// ═══════════════════════════════════════════════════
+let _cfgSaveTimer=null, _applyingConfig=false;
+
+async function loadConfigFromServer(){
+  try{
+    const r=await fetch('/config',{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    applyConfig(await r.json());
+    addLog('ok','โหลด config จาก vMixController แล้ว');
+  }catch(e){
+    addLog('info','ไม่พบ /config — รันผ่าน vMixController.exe เพื่อใช้การตั้งค่าจากโปรแกรม');
+  }
+}
+
+function applyConfig(cfg){
+  _applyingConfig=true;
+  try{
+    const set=(id,val)=>{const el=document.getElementById(id); if(el&&val!==undefined&&val!==null) el.value=val;};
+    // Setup Mode (read-only on the web — badge only)
+    if(cfg.matchMode) setMatchMode(cfg.matchMode);
+    if(cfg.titleType) setTitleType(cfg.titleType);
+    // Match Setup
+    set('matchDayOfWeek',cfg.dayOfWeek); set('matchDay',cfg.date);
+    set('matchMonth',cfg.month); set('matchYear',cfg.year); set('kickOff',cfg.kickOff);
+    if(cfg.periodCount){ state.periodCount=parseInt(cfg.periodCount)||2; rebuildPeriodSwitcher();
+      const pc=document.getElementById('periodCountDisplay'); if(pc) pc.textContent=state.periodCount; }
+    if(cfg.periodMins){ state.periodMins=parseInt(cfg.periodMins)||45;
+      const el=document.getElementById('periodMinsDisplay'); if(el) el.textContent=state.periodMins; }
+    if(cfg.clockMode){ state.clockMode=cfg.clockMode; updateClockModeHint();
+      const c=document.getElementById('modeContBtn'), rst=document.getElementById('modeResetBtn');
+      if(c&&rst){ c.classList.toggle('active',cfg.clockMode==='continuous');
+                  rst.classList.toggle('active',cfg.clockMode!=='continuous'); } }
+    // Competition & Teams
+    set('compName',cfg.compName); set('compLogoFilename',cfg.compLogo);
+    set('homeName',cfg.homeName); set('homeColorHex',cfg.homeColor); set('homeLogoFilename',cfg.homeLogo);
+    set('awayName',cfg.awayName); set('awayColorHex',cfg.awayColor); set('awayLogoFilename',cfg.awayLogo);
+    if(cfg.homeColor){ state.homeColor=cfg.homeColor; syncColor('home'); }
+    if(cfg.awayColor){ state.awayColor=cfg.awayColor; syncColor('away'); }
+    // Timing
+    set('countdownDuration',cfg.countdownDuration); set('goalDuration',cfg.goalDuration);
+    updateTeamDisplay(); updatePreview(); updateSBPreview();
+  }finally{ _applyingConfig=false; }
+}
+
+// Quick edits on phone/iPad → push back to the server (debounced)
+function scheduleConfigSave(){
+  if(_applyingConfig) return;
+  if(_cfgSaveTimer) clearTimeout(_cfgSaveTimer);
+  _cfgSaveTimer=setTimeout(saveConfigToServer,600);
+}
+async function saveConfigToServer(){
+  _cfgSaveTimer=null;
+  const val=id=>document.getElementById(id)?.value??'';
+  const patch={
+    dayOfWeek:val('matchDayOfWeek'), date:val('matchDay'), month:val('matchMonth'),
+    year:val('matchYear'), kickOff:val('kickOff'),
+    periodCount:state.periodCount, periodMins:state.periodMins, clockMode:state.clockMode,
+    compName:val('compName'), compLogo:val('compLogoFilename'),
+    homeName:val('homeName'), homeColor:val('homeColorHex'), homeLogo:val('homeLogoFilename'),
+    awayName:val('awayName'), awayColor:val('awayColorHex'), awayLogo:val('awayLogoFilename'),
+    countdownDuration:parseInt(val('countdownDuration'))||7000,
+    goalDuration:parseInt(val('goalDuration'))||13000,
+  };
+  try{
+    await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+    addLog('ok','บันทึก config กลับไปที่ vMixController');
+  }catch(e){ /* offline from server — vMix commands still work */ }
+}
+
+// Fade whatever is in Preview to Program over 500ms (the transition between PVW & PGM).
+// Fade whatever is in Preview to Program over 500ms (the transition between PVW & PGM).
+function fadePvwToPgm(){
+  const pvw=state.vmixInputs.find(i=>i.num===state.vmixPreview);
+  if(!pvw){ showToast('ไม่มี input ใน PVW','error'); return; }
+  vmixFire('Fade',{Input:inputRef(pvw.title),Duration:'500'});
+  showToast(`Fade 500ms → ${pvw.title}`,'info');
+  scheduleStateRefresh(700);
+}
+
+// ═══════════════════════════════════════════════
+// TRANSPORT BAR — เวลา/seek/volume ของ input ที่อยู่ PGM
+// แสดงเฉพาะเมื่อ PGM เป็นไฟล์วิดีโอ/เสียง (มี duration)
+// vMix ส่ง position/duration เป็น ms มากับ XML ทุก poll
+// ระหว่าง poll ใช้ ticker ในเครื่องเดินเลขต่อให้ลื่น
+// ═══════════════════════════════════════════════
+state._tp = null;          // {title,key,pos,dur,running,syncAt}
+let _tpSeekDragging=false, _tpVolDragging=false;
+
+function isMediaInput(inp){
+  return inp && /video|audio/i.test(inp.type||'') && (inp.duration||0) > 0;
+}
+
+function isSlidesInput(inp){
+  return inp && /photos|powerpoint|imagesequence/i.test((inp.type||'').replace(/\s/g,''));
+}
+
+function updateTransportModel(){
+  const pgm = state.vmixInputs.find(i=>i.num===state.vmixActive);
+  const tpEl=document.getElementById('vicTransport');
+  const slEl=document.getElementById('vicSlides');
+  const volEl=document.getElementById('vicVolumeRow');
+  if(!tpEl||!volEl||!slEl) return;
+
+  if(isSlidesInput(pgm)){
+    // ── โหมด SLIDESHOW (Photos / PowerPoint / Image Sequence) ──
+    state._tp=null;
+    tpEl.style.display='none'; volEl.style.display='none';   // สไลด์ไม่มีเสียง → ซ่อนแถวเสียง
+    const count=pgm.itemCount||0;
+    // selectedIndex จาก XML น่าจะ 0-based → แสดง 1-based (ยืนยันกับของจริงที่สนาม)
+    let idx=isNaN(pgm.selectedIndex)?1:pgm.selectedIndex+1;
+    idx=Math.min(Math.max(idx,1),Math.max(count,1));
+    state._sl={ title:pgm.title, key:pgm.key, idx, count,
+                running:pgm.state==='Running', loop:!!pgm.loop };
+    slEl.style.display='';
+    slRender();
+    return;
+  }
+  state._sl=null; slEl.style.display='none';
+
+  if(!isMediaInput(pgm)){
+    state._tp=null;
+    tpEl.style.display='none'; volEl.style.display='none';
+    return;
+  }
+  state._tp={ title:pgm.title, key:pgm.key,
+              pos:pgm.position, dur:pgm.duration,
+              running:pgm.state==='Running', syncAt:Date.now() };
+  tpEl.style.display=''; volEl.style.display='';
+  // volume จาก vMix (ไม่ทับตอนกำลังลากอยู่)
+  if(!_tpVolDragging && !isNaN(pgm.volume)){
+    const s=document.getElementById('vicVolSlider');
+    const v=Math.round(pgm.volume);
+    s.value=v; document.getElementById('vicVolVal').textContent=v;
+    updateVolIcon(v);
+  }
+  tpRender();
+}
+
+// ═══ SLIDESHOW CONTROLS ═══
+function slRender(){
+  const sl=state._sl; if(!sl) return;
+  const sk=document.getElementById('slSeek');
+  if(sk){
+    if(sl.count>=2){
+      sk.style.display='';
+      sk.min=1; sk.max=sl.count; sk.value=sl.idx;
+      // track แบบ section: เส้นคั่นทุกช่วงสไลด์
+      sk.style.setProperty('--seg', (100/(sl.count-1))+'%');
+    }else{
+      sk.style.display='none';   // สไลด์เดียว/ไม่รู้จำนวน → ไม่มีอะไรให้ลาก
+    }
+  }
+  const pi=document.getElementById('slPlayIcon');
+  if(pi) pi.textContent = sl.running ? 'pause' : 'play_arrow';
+  const lb=document.getElementById('slLoopBtn');
+  const li=document.getElementById('slLoopIcon');
+  if(lb) lb.classList.toggle('active', sl.loop);
+  if(li) li.textContent = sl.loop ? 'repeat_on' : 'repeat';
+}
+
+function slidesReset(){
+  const sl=state._sl; if(!sl) return;
+  const ref=inputRef(sl.title);
+  vmixFire('Pause',{Input:ref});
+  vmixFire('SelectIndex',{Input:ref,Value:'1'});
+  sl.idx=1; sl.running=false;
+  slRender();
+  showToast('กลับสไลด์แรก','info');
+  scheduleStateRefresh(500);
+}
+function slidesPrev(){
+  const sl=state._sl; if(!sl) return;
+  vmixFire('PreviousItem',{Input:inputRef(sl.title)});
+  if(sl.idx>1) sl.idx--; else if(sl.loop&&sl.count) sl.idx=sl.count;
+  slRender();
+  scheduleStateRefresh(400);
+}
+function slidesNext(){
+  const sl=state._sl; if(!sl) return;
+  vmixFire('NextItem',{Input:inputRef(sl.title)});
+  if(sl.count&&sl.idx<sl.count) sl.idx++; else if(sl.loop) sl.idx=1;
+  slRender();
+  scheduleStateRefresh(400);
+}
+function slidesPlayPause(){
+  const sl=state._sl; if(!sl) return;
+  vmixFire('PlayPause',{Input:inputRef(sl.title)});
+  sl.running=!sl.running;
+  slRender();
+  scheduleStateRefresh(500);
+}
+function slidesLoop(){
+  const sl=state._sl; if(!sl) return;
+  vmixFire(sl.loop?'LoopOff':'LoopOn',{Input:inputRef(sl.title)});
+  sl.loop=!sl.loop;
+  slRender();
+  showToast(sl.loop?'Loop เปิด':'Loop ปิด','info');
+}
+function slSeekCommit(el){
+  const sl=state._sl; if(!sl) return;
+  const v=Math.round(parseInt(el.value)||1);
+  vmixFire('SelectIndex',{Input:inputRef(sl.title),Value:String(v)});  // SelectIndex = 1-based
+  sl.idx=v;
+  slRender();
+  scheduleStateRefresh(400);
+}
+
+function fmtHMS(ms){
+  const t=Math.max(0,Math.floor(ms/1000));
+  const h=Math.floor(t/3600), m=Math.floor(t%3600/60), s=t%60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function tpNow(){  // ตำแหน่งปัจจุบัน (ms) — เดินต่อจากค่า sync ล่าสุดถ้ากำลังเล่น
+  const tp=state._tp; if(!tp) return 0;
+  let p = tp.pos + (tp.running ? Date.now()-tp.syncAt : 0);
+  return Math.min(p, tp.dur);
+}
+
+function tpRender(){
+  const tp=state._tp; if(!tp) return;
+  const pos=tpNow(), remain=tp.dur-pos;
+  const el=document.getElementById('tpElapsed');
+  const rm=document.getElementById('tpRemain');
+  if(el) el.textContent=fmtHMS(pos);
+  if(rm){
+    rm.textContent=fmtHMS(remain);
+    // 10 วิสุดท้าย + กำลังเล่น → กระพริบแดงสลับขาวทุกวินาที
+    rm.classList.toggle('blink', tp.running && remain<=10000 && remain>0);
+  }
+  if(!_tpSeekDragging){
+    const sk=document.getElementById('tpSeek');
+    if(sk){ sk.max=tp.dur; sk.value=pos; }
+  }
+  const ic=document.getElementById('tpPlayIcon');
+  if(ic) ic.textContent = tp.running ? 'pause' : 'play_arrow';
+}
+
+function tpTick(){ if(state._tp) tpRender(); }
+
+function transportReset(){
+  const tp=state._tp; if(!tp) return;
+  const ref=inputRef(tp.title);
+  vmixFire('Pause',{Input:ref});
+  vmixFire('SetPosition',{Input:ref,Value:'0'});
+  tp.pos=0; tp.running=false; tp.syncAt=Date.now();
+  state.inputPlaying[tp.title]=false;
+  tpRender(); renderVicGrid();
+  showToast(`Reset: ${tp.title}`,'info');
+}
+
+function transportPlayPause(){
+  const tp=state._tp; if(!tp) return;
+  const ref=inputRef(tp.title);
+  tp.pos=tpNow(); tp.syncAt=Date.now();     // ตรึงตำแหน่งก่อนสลับ
+  vmixFire('PlayPause',{Input:ref});
+  tp.running=!tp.running;
+  state.inputPlaying[tp.title]=tp.running;
+  tpRender(); renderVicGrid();
+  scheduleStateRefresh(600);
+}
+
+function tpSeekInput(el){ _tpSeekDragging=true;
+  const tp=state._tp; if(!tp) return;
+  const v=parseInt(el.value)||0;
+  const e=document.getElementById('tpElapsed'), r=document.getElementById('tpRemain');
+  if(e) e.textContent=fmtHMS(v);
+  if(r) r.textContent=fmtHMS(tp.dur-v);
+}
+function tpSeekCommit(el){
+  const tp=state._tp; _tpSeekDragging=false;
+  if(!tp) return;
+  const v=Math.round(parseInt(el.value)||0);
+  vmixFire('SetPosition',{Input:inputRef(tp.title),Value:String(v)});
+  tp.pos=v; tp.syncAt=Date.now();
+  tpRender();
+}
+
+function updateVolIcon(v){
+  const ic=document.getElementById('vicVolIcon');
+  if(ic) ic.textContent = v===0?'volume_off' : v<50?'volume_down' : 'volume_up';
+}
+let _volSendTimer=null;
+function volSliderInput(el){
+  _tpVolDragging=true;
+  const v=parseInt(el.value)||0;
+  document.getElementById('vicVolVal').textContent=v;
+  updateVolIcon(v);
+  // throttle การยิง SetVolume ระหว่างลาก (~ทุก 120ms) กัน request ท่วม
+  if(_volSendTimer) return;
+  _volSendTimer=setTimeout(()=>{
+    _volSendTimer=null;
+    const tp=state._tp; if(!tp) return;
+    vmixFire('SetVolume',{Input:inputRef(tp.title),Value:String(document.getElementById('vicVolSlider').value)});
+  },120);
+  clearTimeout(state._volDragEnd);
+  state._volDragEnd=setTimeout(()=>{_tpVolDragging=false;},600);
+}
+
+async function connectVmix(){
+  refreshBaseUrl();
+  const ip=document.getElementById('vmixIP').value;
+  const port=document.getElementById('vmixPort').value;
+  addLog('info',`Connecting ${ip}:${port}...`);
+  try{
+    const resp=await fetch(`http://${ip}:${port}/api/`,{mode:'cors'});
+    const text=await resp.text();
+    parseVmixXML(text);
+    setConnected(true);
+    showToast('Connected','success');
+    // ดึงการตั้งค่าแมตช์ล่าสุดจาก vMixController (single source of truth)
+    loadConfigFromServer();
+  }catch(e){
+    try{
+      await fetch(`http://${ip}:${port}/api/?Function=Fake`,{mode:'no-cors'});
+      setConnected(true);
+      showToast('vMix reachable','success');
+      addLog('info','no-cors mode: XML unavailable — import skipped');
+    }
+    catch(e2){addLog('err','Cannot reach vMix: '+e2.message);showToast('Cannot connect','error');setConnected(false);}
+  }
+}
+function disconnectVmix(){state.manualDisconnect=true;state.reconnectAttempts=0;if(state.reconnectTimer){clearTimeout(state.reconnectTimer);state.reconnectTimer=null;}setConnected(false);showConnBanner('hide');showToast('Disconnected','info');state.manualDisconnect=false;}
+// Connection banner control — visible on every tab so a mid-game drop can't be missed.
+function showConnBanner(mode){
+  const b=document.getElementById('connBanner');
+  const ic=document.getElementById('connBannerIcon');
+  const tx=document.getElementById('connBannerText');
+  if(!b) return;
+  if(mode==='hide'){ b.classList.remove('show'); return; }
+  if(mode==='reconnecting'){
+    b.className='conn-banner reconnecting show';
+    ic.textContent='sync'; ic.classList.add('spin');
+    tx.textContent=`กำลังเชื่อมต่อใหม่… (ครั้งที่ ${state.reconnectAttempts||1})`;
+  }else{ // 'lost'
+    b.className='conn-banner show';
+    ic.textContent='wifi_off'; ic.classList.remove('spin');
+    tx.textContent='ขาดการเชื่อมต่อ vMix';
+  }
+}
+
+function setConnected(val){
+  const was=state.connected;
+  state.connected=val;
+  const badge=document.getElementById('statusBadge');
+  const ind=document.getElementById('connectIndicator');
+  const sub=document.getElementById('connectSubtext');
+  const txt=document.getElementById('statusText');
+  if(val){
+    state.reconnectAttempts=0;
+    if(state.reconnectTimer){clearTimeout(state.reconnectTimer);state.reconnectTimer=null;}
+    badge.className='vmix-status-badge connected';txt.textContent='LIVE';
+    ind.className='connect-indicator connected';ind.innerHTML='<span class="msr xl">settings_input_antenna</span>';
+    sub.textContent='Connected to vMix';
+    showConnBanner('hide');
+    if(!was) addLog('ok','Connected');
+    if(!was) showToast('เชื่อมต่อ vMix แล้ว','success');
+    // ไม่เรียก fetchVmixState() ที่นี่ — connectVmix() จัดการ fetch เองหลัง connect
+  }else{
+    badge.className='vmix-status-badge disconnected';txt.textContent='OFFLINE';
+    ind.className='connect-indicator disconnected';ind.innerHTML='<span class="msr xl">settings_input_antenna</span>';
+    sub.textContent='Not connected to vMix';
+    // Only auto-reconnect (and warn loudly) if we were previously live — i.e. a real mid-use drop
+    if(state.manualDisconnect){ showConnBanner('hide'); return; }
+    if(was){
+      addLog('err','การเชื่อมต่อหลุด — กำลังลองใหม่');
+      showConnBanner('lost');
+    }
+    if(document.getElementById('autoReconnectToggle').classList.contains('on')) scheduleReconnect();
+    else showConnBanner('lost');
+  }
+}
+function scheduleReconnect(){
+  if(state.reconnectTimer)return;
+  state.reconnectAttempts=(state.reconnectAttempts||0)+1;
+  // Flip the header badge to the amber "reconnecting" state + show the banner
+  const badge=document.getElementById('statusBadge');
+  const txt=document.getElementById('statusText');
+  if(badge){badge.className='vmix-status-badge reconnecting';}
+  if(txt){txt.textContent='RECONNECTING';}
+  showConnBanner('reconnecting');
+  addLog('info',`Auto-reconnecting… (ครั้งที่ ${state.reconnectAttempts})`);
+  state.reconnectTimer=setTimeout(()=>{
+    state.reconnectTimer=null;
+    if(!state.connected) connectVmix();
+  },3000);  // retry every 3s while down
+}
+async function sendManualAPI(){
+  const fn=document.getElementById('manualFunction').value.trim();
+  if(!fn){showToast('กรุณาระบุ Function','error');return;}
+  const params={};
+  const inp=document.getElementById('manualInput').value.trim();
+  const val=document.getElementById('manualValue').value.trim();
+  const sn=document.getElementById('manualSelectedName').value.trim();
+  if(inp)params.Input=inp;if(val)params.Value=val;if(sn)params.SelectedName=sn;
+  await vmixApi(fn,params);showToast(`${fn} sent`,'success');
+}
+
+// LOG
+function addLog(type,msg){
+  const log=document.getElementById('apiLog');
+  const now=new Date();
+  const t=[now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  const entry=document.createElement('div');entry.className='log-entry';
+  entry.innerHTML=`<span class="log-time">${t}</span><span class="log-msg ${type}">${msg}</span>`;
+  log.appendChild(entry);log.scrollTop=log.scrollHeight;
+  while(log.children.length>60)log.removeChild(log.firstChild);
+}
+function clearLog(){document.getElementById('apiLog').innerHTML='';addLog('info','Log cleared');}
+
+// TOAST
+let toastTimer=null;
+function showToast(msg,type='info'){
+  const toast=document.getElementById('toast');
+  const icons={success:'check_circle',error:'cancel',info:'info'};
+  toast.innerHTML=`<span class="msr sm">${icons[type]||'info'}</span> ${msg}`;
+  toast.className=`toast show ${type}`;
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toast.classList.remove('show'),2500);
+}
+
+// AUTO REFRESH
+setInterval(()=>{if(state.connected)fetchVmixState();},10000);
+
+// WAKE-UP SYNC — เมื่อเปิดจอมือถือกลับมา (จากปิดจอหรือสลับแอพ)
+// ให้ดึงเวลาจริงจาก vMix XML ทันที เพื่อ sync ตัวเลขในแอพกลับมาตรง
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState === 'visible'){
+    loadConfigFromServer();   // ตั้งค่าอาจถูกแก้บนคอมระหว่างจอปิด
+    if (state.connected && state.clockRunning) {
+      addLog('info','Screen woke up — syncing clock from vMix...');
+      fetchVmixState();
+    }
+  }
+});
+
+// ── Drawer (ลิ้นชักตั้งค่า แท็บ vMix) ──
+function toggleDrawer(id){
+  const d=document.getElementById(id);
+  if(d) d.classList.toggle('open');
+}
+function updateDrawerSub(){
+  const el=document.getElementById('drawerConnSub');
+  if(el) el.textContent=`${document.getElementById('vmixIP').value} : ${document.getElementById('vmixPort').value}`;
+}
+
+// INIT
+// vMix IP อัตโนมัติ: แอพถูกเสิร์ฟจากเครื่อง vMix เสมอ → host ที่มือถือใช้โหลดหน้านี้ = IP ของ vMix
+// LAN หลุดสลับไป WiFi ก็แค่เปิดหน้าเว็บด้วย IP ใหม่ — แอพจะชี้ vMix ตาม host ให้เอง ไม่ต้องแก้ในแอพ
+try{
+  const pageHost=(location.protocol.startsWith('http')&&location.hostname)?location.hostname:'';
+  const savedIP=localStorage.getItem('yru_vmix_ip');
+  const savedPort=localStorage.getItem('yru_vmix_port');
+  if(pageHost){ document.getElementById('vmixIP').value=pageHost; }
+  else if(savedIP){ document.getElementById('vmixIP').value=savedIP; }   // fallback ตอนเปิดแบบ file://
+  if(savedPort) document.getElementById('vmixPort').value=savedPort;
+}catch(e){/* localStorage ไม่พร้อมใช้ — ใช้ค่า default ในช่อง */}
+// เผื่อเปิดไฟล์ตรงๆ (file://) — อ่าน XML จาก vMix ไม่ได้ แจ้งใน log สั้นๆ พอ
+if(!location.protocol.startsWith('http')){
+  addLog('err','เปิดผ่าน vMixController.exe แล้วเข้า http://<IP>:8080 — เปิดไฟล์ตรงๆ จะเชื่อม vMix ไม่ได้');
+}
+updateDrawerSub();
+refreshBaseUrl();
+setInterval(tpTick, 500);   // transport bar เดินเลขลื่นระหว่างรอบ poll
+['vmixIP','vmixPort'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('change',()=>{
+    refreshBaseUrl();
+    updateDrawerSub();
+    try{
+      localStorage.setItem('yru_vmix_ip',document.getElementById('vmixIP').value.trim());
+      localStorage.setItem('yru_vmix_port',document.getElementById('vmixPort').value.trim());
+    }catch(e){}
+  });
+});
+rebuildPeriodSwitcher();
+updateClockModeHint();
+updatePreview();
+updateSBPreview();
+setTitleType('logo');
+setMatchMode('thai');
+
+// ── MATCH CONFIG WIRING (vMixController is the source of truth) ──
+loadConfigFromServer();                      // initial load
+setInterval(loadConfigFromServer, 15000);    // pick up edits made on the desktop app
+// quick edits on phone/iPad: any input change in the Settings tab → save back
+(()=>{
+  const panel=document.getElementById('panel-settings');
+  if(panel){
+    panel.addEventListener('input', scheduleConfigSave);
+    panel.addEventListener('change', scheduleConfigSave);
+  }
+})();
+</script>
+</body>
+</html>
