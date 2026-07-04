@@ -59,11 +59,17 @@ try:
 except Exception:
     HAS_TRAY = False
 
+try:
+    from tkcalendar import DateEntry
+    HAS_CAL = True
+except Exception:
+    HAS_CAL = False
+
 # ═════════════════════════════════════════════════════════════════════════════
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.2"
+APP_VERSION = "4.3.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -620,15 +626,28 @@ class App:
         c3, b3 = card(self.col, "Match Setup", "📅", C["cyan"])
         c3.pack(**pad)
         r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
-        label(r, "Day of Week", width=12).pack(side="left")
-        Dropdown(r, DAYS, self.v["dayOfWeek"], width=10).pack(side="left")
-        r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
-        label(r, "Date", width=12).pack(side="left")
-        entry(r, self.v["date"], width=5).pack(side="left")
-        label(r, "  Month ").pack(side="left")
-        Dropdown(r, MONTHS, self.v["month"], width=10).pack(side="left")
-        label(r, "  Year ").pack(side="left")
-        entry(r, self.v["year"], width=6).pack(side="left")
+        label(r, "Match Date", width=12).pack(side="left")
+        if HAS_CAL:
+            self.date_picker = DateEntry(r, width=14, background=C["blue"], foreground="white",
+                                         bordercolor=C["border"], headersbackground=C["card2"],
+                                         normalbackground=C["input"], normalforeground=C["text"],
+                                         weekendbackground=C["input"], weekendforeground=C["text2"],
+                                         othermonthbackground=C["card"], othermonthforeground=C["muted"],
+                                         selectbackground=C["blue"], font=FONT, locale="en_US",
+                                         date_pattern="dd/mm/yyyy")
+            self.date_picker.pack(side="left")
+            self.date_picker.bind("<<DateEntrySelected>>", lambda e: self._on_date_picked())
+            label(r, "  (เลือกจากปฏิทิน กันลงวันผิด)", fg=C["muted"]).pack(side="left")
+        else:
+            label(r, "Day of Week", width=12).pack(side="left")
+            Dropdown(r, DAYS, self.v["dayOfWeek"], width=10).pack(side="left")
+            r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
+            label(r, "Date", width=12).pack(side="left")
+            entry(r, self.v["date"], width=5).pack(side="left")
+            label(r, "  Month ").pack(side="left")
+            Dropdown(r, MONTHS, self.v["month"], width=10).pack(side="left")
+            label(r, "  Year ").pack(side="left")
+            entry(r, self.v["year"], width=6).pack(side="left")
         r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Kick Off", width=12).pack(side="left")
         entry(r, self.v["kickOff"], width=8, mono=True).pack(side="left")
@@ -741,6 +760,26 @@ class App:
                 var.set(val)
         if self._save_job:  # cancel saves triggered by the sets above
             self.root.after_cancel(self._save_job); self._save_job = None
+        self._sync_date_picker_from_vars()
+
+    def _on_date_picked(self):
+        d = self.date_picker.get_date()
+        self.v["dayOfWeek"].set(DAYS[d.weekday() + 1])   # DAYS[1:]=Mon..Sun, matches weekday() 0..6
+        self.v["date"].set(str(d.day))
+        self.v["month"].set(MONTHS[d.month])             # MONTHS[1:]=Jan..Dec, matches d.month 1..12
+        self.v["year"].set(str(d.year))
+
+    def _sync_date_picker_from_vars(self):
+        if not HAS_CAL or not hasattr(self, "date_picker"):
+            return
+        try:
+            month_idx = MONTHS.index(self.v["month"].get())
+            day = int(self.v["date"].get())
+            year = int(self.v["year"].get())
+            if month_idx and day and year:
+                self.date_picker.set_date(datetime.date(year, month_idx, day))
+        except (ValueError, IndexError):
+            pass
 
     # ── competition profiles (load/save a whole match setup + logos folder) ───
     def load_competition(self):

@@ -10,13 +10,15 @@ REM ============================================================
 
 echo [1/3] Installing dependencies...
 python -m pip install --upgrade pip >nul
-python -m pip install pyinstaller tkinterdnd2 pystray pillow
+python -m pip install pyinstaller tkinterdnd2 pystray pillow tkcalendar
 if errorlevel 1 goto :err
 
 echo [2/3] Building vMixController.exe ...
 python -m PyInstaller --noconfirm --onefile --windowed ^
   --name vMixController ^
   --collect-all tkinterdnd2 ^
+  --collect-all tkcalendar ^
+  --collect-all babel ^
   --add-data "index.html;." ^
   vMixController.py
 if errorlevel 1 goto :err
