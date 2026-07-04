@@ -1740,6 +1740,25 @@ function adjustScore(team, delta) {
     vmixFire('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)});
   }
   scheduleStateRefresh(500);   // ดึง state กลับเร็วๆ เพื่อยืนยัน + ให้เครื่องอื่นเห็นตาม
+  logMatchScore();
+}
+
+// ═══════════════════════════════
+// MATCH LOG — persisted server-side to C:\vMixData\matches.json
+// (fire-and-forget: never awaited, never blocks the UI or broadcast timing)
+// ═══════════════════════════════
+function logMatchStart(){
+  const val=id=>document.getElementById(id)?.value??'';
+  fetch('/matchlog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    action:'start',
+    date:[val('matchDayOfWeek'),val('matchDay'),val('matchMonth'),val('matchYear')].filter(Boolean).join(' '),
+    competition:val('compName'), homeName:state.homeName, awayName:state.awayName, kickOff:val('kickOff')
+  })}).catch(()=>{});
+}
+function logMatchScore(){
+  fetch('/matchlog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    action:'score', homeScore:state.homeScore, awayScore:state.awayScore
+  })}).catch(()=>{});
 }
 
 function getSBInput(){return state.titleType==='logo'?'SB-LOGO.gtzip':'SB-TileName.gtzip';}
@@ -1930,6 +1949,7 @@ async function triggerGoal() {
 // START MATCH
 // ═══════════════════════════════
 async function startMatch() {
+  logMatchStart();   // fire-and-forget, never blocks the broadcast timing below
   const sbInput=getSBInput();
 
   if (state.matchMode==='thai') {

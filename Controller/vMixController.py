@@ -29,6 +29,7 @@ Dependencies (see build-exe.bat):
 """
 
 import datetime
+import glob
 import json
 import os
 import re
@@ -69,7 +70,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.4.0"
+APP_VERSION = "4.5.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -77,6 +78,8 @@ BASE_DIR   = r"C:\vMixData" if os.name == "nt" else os.path.expanduser("~/vMixDa
 LOGO_DIR   = os.path.join(BASE_DIR, "logos")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 INDEX_PATH  = os.path.join(BASE_DIR, "index.html")
+BACKUP_DIR  = os.path.join(BASE_DIR, "backups")
+MATCHLOG_PATH = os.path.join(BASE_DIR, "matches.json")
 
 DEFAULT_CONFIG = {
     # Setup Mode
@@ -184,6 +187,32 @@ def register_fonts():
         pass
 
 
+def ensure_startup_shortcut():
+    """Create a Windows Startup shortcut to this exe on first run, so a fresh
+    install auto-starts without anyone manually placing a shortcut in
+    shell:startup. Only runs for the built exe (a shortcut to python.exe
+    running a .py script wouldn't be useful), and only if none exists yet."""
+    if os.name != "nt" or not getattr(sys, "frozen", False):
+        return
+    startup_dir = os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup")
+    shortcut_path = os.path.join(startup_dir, f"{APP_NAME}.lnk")
+    if os.path.exists(shortcut_path):
+        return
+    exe_path = sys.executable
+    ps_script = (
+        "$s = New-Object -ComObject WScript.Shell;"
+        f"$sc = $s.CreateShortcut('{shortcut_path}');"
+        f"$sc.TargetPath = '{exe_path}';"
+        f"$sc.WorkingDirectory = '{os.path.dirname(exe_path)}';"
+        "$sc.Save()"
+    )
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
+                       creationflags=subprocess.CREATE_NO_WINDOW, timeout=10)
+    except Exception:
+        pass
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # CONFIG STORE (thread-safe; shared between GUI and HTTP server)
 # ═════════════════════════════════════════════════════════════════════════════
@@ -229,6 +258,55 @@ class ConfigStore:
 
 
 CONFIG = ConfigStore()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# MATCH LOG (append a record on Start Match, keep its score updated live)
+# ═════════════════════════════════════════════════════════════════════════════
+class MatchLog:
+    def __init__(self):
+        self._lock = threading.Lock()
+
+    def _load(self):
+        try:
+            with open(MATCHLOG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    def _save(self, records):
+        os.makedirs(BASE_DIR, exist_ok=True)
+        tmp = MATCHLOG_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(records, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, MATCHLOG_PATH)
+
+    def start(self, data):
+        with self._lock:
+            records = self._load()
+            records.append({
+                "date": data.get("date", ""),
+                "competition": data.get("competition", ""),
+                "homeName": data.get("homeName", ""),
+                "awayName": data.get("awayName", ""),
+                "kickOff": data.get("kickOff", ""),
+                "homeScore": 0,
+                "awayScore": 0,
+                "startedAt": datetime.datetime.now().isoformat(timespec="seconds"),
+            })
+            self._save(records)
+
+    def update_score(self, home_score, away_score):
+        with self._lock:
+            records = self._load()
+            if not records:
+                return
+            records[-1]["homeScore"] = home_score
+            records[-1]["awayScore"] = away_score
+            self._save(records)
+
+
+MATCHLOG = MatchLog()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -284,18 +362,32 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, b'{"error":"not found"}')
 
     def do_POST(self):
-        if unquote(self.path.split("?")[0]) != "/config":
+        path = unquote(self.path.split("?")[0])
+        if path == "/config":
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                patch = json.loads(self.rfile.read(n).decode("utf-8"))
+                if not isinstance(patch, dict):
+                    raise ValueError("body must be a JSON object")
+                CONFIG.update(patch, from_http=True)
+                self._send(200, json.dumps(CONFIG.get(), ensure_ascii=False).encode("utf-8"))
+            except Exception as e:
+                self._send(400, json.dumps({"error": str(e)}).encode("utf-8"))
+        elif path == "/matchlog":
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(n).decode("utf-8"))
+                if payload.get("action") == "start":
+                    MATCHLOG.start(payload)
+                elif payload.get("action") == "score":
+                    MATCHLOG.update_score(payload.get("homeScore", 0), payload.get("awayScore", 0))
+                else:
+                    raise ValueError("unknown action")
+                self._send(200, b'{"ok":true}')
+            except Exception as e:
+                self._send(400, json.dumps({"error": str(e)}).encode("utf-8"))
+        else:
             self._send(404, b'{"error":"not found"}')
-            return
-        try:
-            n = int(self.headers.get("Content-Length", "0"))
-            patch = json.loads(self.rfile.read(n).decode("utf-8"))
-            if not isinstance(patch, dict):
-                raise ValueError("body must be a JSON object")
-            CONFIG.update(patch, from_http=True)
-            self._send(200, json.dumps(CONFIG.get(), ensure_ascii=False).encode("utf-8"))
-        except Exception as e:
-            self._send(400, json.dumps({"error": str(e)}).encode("utf-8"))
 
 
 def start_http_server():
@@ -623,6 +715,8 @@ class App:
         prow = tk.Frame(b1, bg=C["card"]); prow.pack(fill="x", pady=(8, 0))
         flat_button(prow, "📂 โหลดรายการแข่งขัน", self.load_competition, fg=C["cyan"]).pack(side="left")
         flat_button(prow, "💾 บันทึกเป็นรายการใหม่", self.save_competition_as, fg=C["text2"]).pack(side="left", padx=6)
+        prow2 = tk.Frame(b1, bg=C["card"]); prow2.pack(fill="x", pady=(6, 0))
+        flat_button(prow2, "↩ กู้คืนค่าตั้งก่อนหน้า", self.restore_last_backup, fg=C["amber"]).pack(side="left")
         self.profile_status_var = tk.StringVar(value="ยังไม่ได้โหลดรายการแข่งขัน")
         tk.Label(b1, textvariable=self.profile_status_var, bg=C["card"], fg=C["muted"],
                  font=FONT_SM, anchor="w", justify="left", wraplength=520).pack(anchor="w", pady=(4, 0))
@@ -822,6 +916,7 @@ class App:
         except Exception as e:
             messagebox.showerror(APP_NAME, f"อ่านไฟล์ config ไม่ได้:\n{e}")
             return
+        self._backup_current_config()   # snapshot the outgoing setup in case this load was a mistake
         src_logos = os.path.join(folder, "logos")
         if os.path.isdir(src_logos):
             os.makedirs(LOGO_DIR, exist_ok=True)
@@ -836,6 +931,43 @@ class App:
         name = data.get("compName") or os.path.basename(folder)
         self.profile_status_var.set(
             f"รายการปัจจุบัน: {name} · โหลดเมื่อ {datetime.datetime.now():%d/%m/%Y %H:%M} · {folder}")
+
+    def _backup_current_config(self):
+        """Snapshot the current config.json before an action that overwrites it
+        (loading a different competition), so a wrong pick can be undone."""
+        try:
+            os.makedirs(BACKUP_DIR, exist_ok=True)
+            ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            dest = os.path.join(BACKUP_DIR, f"config-{ts}.json")
+            with open(dest, "w", encoding="utf-8") as f:
+                json.dump(CONFIG.get(), f, ensure_ascii=False, indent=2)
+            backups = sorted(glob.glob(os.path.join(BACKUP_DIR, "config-*.json")))
+            for old in backups[:-20]:   # keep only the most recent 20 backups
+                try: os.remove(old)
+                except Exception: pass
+        except Exception:
+            pass
+
+    def restore_last_backup(self):
+        backups = sorted(glob.glob(os.path.join(BACKUP_DIR, "config-*.json")))
+        if not backups:
+            messagebox.showinfo(APP_NAME, "ยังไม่มีไฟล์สำรองครับ (จะสร้างให้อัตโนมัติทุกครั้งที่โหลดรายการแข่งขันใหม่)")
+            return
+        latest = backups[-1]
+        if not messagebox.askyesno(APP_NAME,
+                f"กู้คืนค่าตั้งจากไฟล์สำรอง\n{os.path.basename(latest)}\nกลับมาใช้แทนค่าปัจจุบันหรือไม่?"):
+            return
+        try:
+            with open(latest, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            messagebox.showerror(APP_NAME, f"อ่านไฟล์สำรองไม่ได้:\n{e}")
+            return
+        CONFIG.update(data)
+        self._load_from_config()
+        self._paint_swatch("home"); self._paint_swatch("away")
+        self.profile_status_var.set(
+            f"กู้คืนค่าตั้งจากไฟล์สำรอง {os.path.basename(latest)} · {datetime.datetime.now():%d/%m/%Y %H:%M}")
 
     def save_competition_as(self):
         folder = filedialog.askdirectory(title="เลือกตำแหน่งที่จะบันทึกรายการแข่งขัน (จะสร้างโฟลเดอร์ย่อยให้)")
@@ -940,6 +1072,7 @@ def ensure_dirs():
 
 def main():
     register_fonts()
+    ensure_startup_shortcut()
     ensure_dirs()
     try:
         start_http_server()
