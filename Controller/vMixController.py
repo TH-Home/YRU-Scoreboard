@@ -40,6 +40,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote
+import urllib.request
 
 import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox
@@ -64,6 +65,7 @@ except Exception:
 APP_NAME    = "vMixController"
 APP_VERSION = "4.2"
 HTTP_PORT   = 8080
+GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
 BASE_DIR   = r"C:\vMixData" if os.name == "nt" else os.path.expanduser("~/vMixData")
 LOGO_DIR   = os.path.join(BASE_DIR, "logos")
@@ -100,6 +102,37 @@ DEFAULT_CONFIG = {
 DAYS   = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 MONTHS = ["", "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# UPDATE CHECK (GitHub Releases — public repo, no auth needed to read)
+# ═════════════════════════════════════════════════════════════════════════════
+def _version_tuple(v):
+    parts = []
+    for p in v.split("."):
+        try: parts.append(int(p))
+        except ValueError: parts.append(0)
+    return tuple(parts)
+
+
+def check_for_update(on_found):
+    """Runs in a background thread; calls on_found(latest_version, url) if a
+    newer GitHub release exists. Fails silently (no internet, rate limit,
+    no releases published yet, etc.) since this is a nice-to-have, not core."""
+    def worker():
+        try:
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+                headers={"Accept": "application/vnd.github+json", "User-Agent": APP_NAME})
+            with urllib.request.urlopen(req, timeout=6) as r:
+                data = json.load(r)
+            latest = str(data.get("tag_name", "")).lstrip("vV")
+            url = data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases/latest"
+            if latest and _version_tuple(latest) > _version_tuple(APP_VERSION):
+                on_found(latest, url)
+        except Exception:
+            pass
+    threading.Thread(target=worker, daemon=True).start()
 
 # Dark glassmorphism palette — mirrors the web app
 C = {
@@ -495,6 +528,7 @@ class App:
         self._build_ui()
         self._load_from_config()
         self._poll_http_edits()   # GUI-thread polling for edits arriving via HTTP POST
+        check_for_update(lambda ver, url: self.root.after(0, self._on_update_found, ver, url))
 
         # intercept close/minimize → tray
         self.root.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
@@ -567,6 +601,10 @@ class App:
         self.profile_status_var = tk.StringVar(value="ยังไม่ได้โหลดรายการแข่งขัน")
         tk.Label(b1, textvariable=self.profile_status_var, bg=C["card"], fg=C["muted"],
                  font=FONT_SM, anchor="w", justify="left", wraplength=520).pack(anchor="w", pady=(4, 0))
+        self.update_url = None
+        self.update_banner = tk.Label(b1, text="", bg=C["card"], fg=C["amber"], font=FONT_BOLD,
+                                      cursor="hand2", anchor="w")
+        self.update_banner.bind("<Button-1>", lambda e: self.update_url and webbrowser.open(self.update_url))
 
         # ── 2) SETUP MODE ─────────────────────────────────────────────────────
         c2, b2 = card(self.col, "Setup Mode", "⚙", C["blue"])
@@ -677,6 +715,11 @@ class App:
                 except Exception: val = DEFAULT_CONFIG[k]
             patch[k] = val
         CONFIG.update(patch)
+
+    def _on_update_found(self, latest_version, url):
+        self.update_url = url
+        self.update_banner.configure(text=f"🔔 มีเวอร์ชันใหม่ v{latest_version} พร้อมใช้งาน — คลิกเพื่อดาวน์โหลด")
+        self.update_banner.pack(anchor="w", pady=(6, 0))
 
     def _poll_http_edits(self):
         """Runs on the GUI thread — reload fields when a phone/iPad POSTed /config."""
