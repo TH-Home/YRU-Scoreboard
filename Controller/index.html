@@ -437,7 +437,9 @@ select.field-input{cursor:pointer;
 /* PERIOD SETTINGS */
 .period-mode-row{display:flex;gap:6px;}
 .period-mode-btn{flex:1;padding:7px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);
-  background:transparent;color:var(--text-muted);font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.15s;text-align:center;}
+  background:transparent;color:var(--text-muted);font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.15s;text-align:center;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.3;}
+.period-mode-btn .mode-th{font-size:9px;font-weight:500;opacity:0.75;}
 .period-mode-btn.active{border-color:rgba(59,158,255,0.5);color:var(--accent-blue);background:rgba(59,158,255,0.1);}
 .period-mode-btn:active{transform:scale(0.95);}
 .period-count-btn{width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
@@ -916,10 +918,9 @@ select.field-input{cursor:pointer;
           <div class="field-group">
             <div class="field-label">Clock Mode</div>
             <div class="period-mode-row">
-              <button class="period-mode-btn active" id="modeContBtn" onclick="setClockMode('continuous',this)"><span class="msr sm" style="vertical-align:-3px;">trending_up</span> Cumulative</button>
-              <button class="period-mode-btn" id="modeResetBtn" onclick="setClockMode('reset',this)"><span class="msr sm" style="vertical-align:-3px;">replay</span> Reset Each</button>
+              <button class="period-mode-btn active" id="modeContBtn" onclick="setClockMode('continuous',this)"><span><span class="msr sm" style="vertical-align:-3px;">trending_up</span> Cumulative</span><span class="mode-th">(นับต่อเนื่อง)</span></button>
+              <button class="period-mode-btn" id="modeResetBtn" onclick="setClockMode('reset',this)"><span><span class="msr sm" style="vertical-align:-3px;">replay</span> Reset Each</span><span class="mode-th">(เริ่มนับ 0 ใหม่)</span></button>
             </div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:2px;" id="clockModeHint">นับต่อเนื่อง: P1=0–45, P2=45–90</div>
           </div>
         </div>
       </div>
@@ -1057,7 +1058,6 @@ select.field-input{cursor:pointer;
         <div class="timing-label">Countdown duration</div>
         <div style="display:flex;align-items:center;gap:4px;"><input class="timing-input" id="countdownDuration" value="7000"><span class="ms-label">ms</span></div>
       </div>
-      <div style="font-size:10px;color:var(--text-muted);margin:-6px 0 4px;">ใช้เฉพาะ Thai League Mode — Start จะเริ่มจับเวลาแข่งขันจริงที่ (Countdown duration − 1750ms) เสมอ ไม่เกี่ยวกับ General Mode</div>
       <div class="timing-row">
         <div class="timing-label">Goal! duration</div>
         <div style="display:flex;align-items:center;gap:4px;"><input class="timing-input" id="goalDuration" value="13000"><span class="ms-label">ms</span></div>
@@ -1294,11 +1294,13 @@ async function setClockMode(mode, btn) {
 }
 
 function updateClockModeHint() {
+  const el = document.getElementById('clockModeHint');
+  if (!el) return;
   const m = state.periodMins;
   const hint = state.clockMode === 'continuous'
     ? `นับต่อเนื่อง: P1=0–${m}, P2=${m}–${m*2}${state.periodCount>2?', P3='+m*2+'–'+m*3:''}`
     : `Reset ทุก period: แต่ละ period 0–${m} min`;
-  document.getElementById('clockModeHint').textContent = hint;
+  el.textContent = hint;
 }
 
 function getPeriodStart(p) {
