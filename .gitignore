@@ -1,5 +1,6 @@
 Controller/build/
 Controller/dist/
 Controller/install/
+Controller/releases/
 Controller/__pycache__/
 *.pyc

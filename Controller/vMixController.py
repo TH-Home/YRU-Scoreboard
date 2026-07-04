@@ -61,7 +61,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.0"
+APP_VERSION = "4.1"
 HTTP_PORT   = 8080
 
 BASE_DIR   = r"C:\vMixData" if os.name == "nt" else os.path.expanduser("~/vMixData")
@@ -326,6 +326,32 @@ def flat_button(parent, text, command, fg=C["text"], bg=C["card2"], font=FONT_SM
     return b
 
 
+class Dropdown(tk.Frame):
+    """Flat-styled dropdown matching the app's dark theme (native tk.OptionMenu
+    draws an OS-themed 3D indicator that clashes with the flat dark cards)."""
+    def __init__(self, parent, options, variable, width=10, bg=C["card"]):
+        super().__init__(parent, bg=bg)
+        self.var = variable
+        self.menu = tk.Menu(self, tearoff=0, bg=C["card2"], fg=C["text"],
+                            activebackground=C["blue"], activeforeground=C["text"],
+                            font=FONT_SM, bd=0)
+        for opt in options:
+            self.menu.add_command(label=opt if opt else "—", command=lambda o=opt: self.var.set(o))
+        self.btn = tk.Label(self, bg=C["input"], fg=C["text"], font=FONT_SM,
+                            padx=10, pady=5, width=width, anchor="w", cursor="hand2",
+                            highlightthickness=1, highlightbackground=C["border"])
+        self.btn.pack(fill="x")
+        self.btn.bind("<Button-1>", self._popup)
+        self.var.trace_add("write", lambda *a: self._refresh())
+        self._refresh()
+
+    def _refresh(self):
+        self.btn.configure(text=f"{self.var.get() or '—'}   ▾")
+
+    def _popup(self, event):
+        self.menu.tk_popup(event.x_root, event.y_root)
+
+
 class Segmented(tk.Frame):
     """Two-or-more option segmented control, like the web app's mode buttons."""
     def __init__(self, parent, options, variable, accent=C["blue"], bg=C["card"]):
@@ -513,14 +539,12 @@ class App:
         c3.pack(**pad)
         r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Day of Week", width=12).pack(side="left")
-        om = tk.OptionMenu(r, self.v["dayOfWeek"], *DAYS)
-        self._style_option(om); om.pack(side="left")
+        Dropdown(r, DAYS, self.v["dayOfWeek"], width=10).pack(side="left")
         r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Date", width=12).pack(side="left")
         entry(r, self.v["date"], width=5).pack(side="left")
         label(r, "  Month ").pack(side="left")
-        om = tk.OptionMenu(r, self.v["month"], *MONTHS)
-        self._style_option(om); om.pack(side="left")
+        Dropdown(r, MONTHS, self.v["month"], width=10).pack(side="left")
         label(r, "  Year ").pack(side="left")
         entry(r, self.v["year"], width=6).pack(side="left")
         r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
@@ -534,7 +558,7 @@ class App:
         entry(r, self.v["periodMins"], width=4).pack(side="left")
         r = tk.Frame(b3, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Clock Mode", width=12).pack(side="left")
-        Segmented(r, [("continuous", "Cumulative (0–45, 45–90)"), ("reset", "Reset Each")],
+        Segmented(r, [("continuous", "Cumulative (นับต่อเนื่อง)"), ("reset", "Reset Each (เริ่มนับ 0 ใหม่)")],
                   self.v["clockMode"], accent=C["cyan"]).pack(side="left")
 
         # ── 4) COMPETITION & TEAMS ────────────────────────────────────────────
@@ -571,8 +595,6 @@ class App:
         label(r, "Countdown duration", width=18).pack(side="left")
         entry(r, self.v["countdownDuration"], width=8, mono=True).pack(side="left")
         label(r, " ms").pack(side="left")
-        label(b5, "ใช้เฉพาะ Thai League — จับเวลาแข่งจริงเริ่มที่ (Countdown duration − 1750ms) เสมอ",
-              fg=C["muted"]).pack(anchor="w")
         r = tk.Frame(b5, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Goal! duration", width=18).pack(side="left")
         entry(r, self.v["goalDuration"], width=8, mono=True).pack(side="left")
@@ -585,13 +607,6 @@ class App:
         flat_button(f, "ซ่อนลง Tray", self.hide_to_tray, fg=C["text2"]).pack(side="right")
 
         self.refresh_urls()
-
-    def _style_option(self, om):
-        om.configure(bg=C["input"], fg=C["text"], activebackground=C["card2"],
-                     activeforeground=C["text"], relief="flat", highlightthickness=1,
-                     highlightbackground=C["border"], font=FONT_SM)
-        om["menu"].configure(bg=C["card2"], fg=C["text"], font=FONT_SM,
-                             activebackground=C["blue"])
 
     def _paint_swatch(self, team):
         try:
