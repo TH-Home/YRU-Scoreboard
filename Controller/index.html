@@ -671,7 +671,7 @@ select.field-input{cursor:pointer;
   <div class="header-logo">
     <div class="header-logo-icon"><span class="msr fill" style="color:#fff;">sports_soccer</span></div>
     <div class="header-text">
-      <div class="header-title">YRU Scoreboard <span class="header-sub">— vMix Controller v3.0</span></div>
+      <div class="header-title">YRU Scoreboard <span class="header-sub" id="headerVersion">— vMix Controller</span></div>
     </div>
   </div>
   <div class="header-controls">
@@ -2446,7 +2446,12 @@ async function loadConfigFromServer(){
   try{
     const r=await fetch('/config',{cache:'no-store'});
     if(!r.ok) throw new Error('HTTP '+r.status);
-    applyConfig(await r.json());
+    const cfg=await r.json();
+    applyConfig(cfg);
+    if(cfg.appVersion){
+      const hv=document.getElementById('headerVersion');
+      if(hv) hv.textContent='— vMix Controller v'+cfg.appVersion;
+    }
     addLog('ok','โหลด config จาก vMixController แล้ว');
   }catch(e){
     addLog('info','ไม่พบ /config — รันผ่าน vMixController.exe เพื่อใช้การตั้งค่าจากโปรแกรม');

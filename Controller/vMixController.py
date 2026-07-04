@@ -212,7 +212,8 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             self._send_file(INDEX_PATH, "text/html; charset=utf-8")
         elif path == "/config":
-            self._send(200, json.dumps(CONFIG.get(), ensure_ascii=False).encode("utf-8"))
+            payload = dict(CONFIG.get(), appVersion=APP_VERSION)
+            self._send(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         elif path.startswith("/logos/"):
             name = os.path.basename(path[len("/logos/"):])   # no traversal
             full = os.path.join(LOGO_DIR, name)
