@@ -1348,7 +1348,7 @@ function secsToHMS(totalSeconds) {
   return [h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
 }
 
-async function clockStart(startOffsetSeconds) {
+async function clockStart(startOffsetSeconds, forceSetPosition) {
   if (state.clockRunning) return;
   const limit = getPeriodLimit(state.currentPeriod);
   const start = getPeriodStart(state.currentPeriod);
@@ -1359,12 +1359,16 @@ async function clockStart(startOffsetSeconds) {
   const sb = getSBInput();
   const resuming = state.clockSeconds > start;
 
-  if (!resuming) {
+  // forceSetPosition: used by applyResumedClock() after a crash/restart --
+  // vMix's own Countdown position can't be trusted then, so it must be
+  // explicitly set even though state.clockSeconds looks like "resuming".
+  if (!resuming || forceSetPosition) {
     await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(start)});
     await vmixApi('SetCountdown',{Input:sb,Value:secsToHMS(limit)});
   }
   await vmixApi('StartCountdown',{Input:sb});
   addLog('ok',`vMix Countdown started on ${sb} (${secsToHMS(start)} → ${secsToHMS(limit)})`);
+  logClockEvent(resuming?'resume':'start', state.clockSeconds);
 
   state.clockRunning = true;
   updateClockUI();
@@ -1398,6 +1402,7 @@ async function clockPause() {
   document.getElementById('clockDisplay').className = 'clock-display paused';
   await vmixApi('SuspendCountdown',{Input:getSBInput()});
   addLog('info','vMix Countdown paused');
+  logClockEvent('pause', state.clockSeconds);
   showToast('Paused','info');
 }
 
@@ -1412,6 +1417,7 @@ async function clockReset() {
   await vmixApi('StopCountdown',{Input:sb});
   await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(state.clockSeconds)});
   addLog('info',`vMix Countdown reset to ${secsToHMS(state.clockSeconds)}`);
+  logClockEvent('reset', state.clockSeconds);
 }
 
 // Resync local display from vMix's actual current value (call after
@@ -1760,6 +1766,38 @@ function logMatchScore(){
     action:'score', homeScore:state.homeScore, awayScore:state.awayScore
   })}).catch(()=>{});
 }
+function logClockEvent(event, clockSeconds){
+  fetch('/matchlog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    action:'clockEvent', event, clockSeconds, period:state.currentPeriod,
+    wallClockAt:new Date().toISOString()
+  })}).catch(()=>{});
+}
+
+// ═══════════════════════════════
+// CLOCK RESUME — if the computer running vMix crashed/lost power mid-match,
+// vMix's own Countdown object has no memory of where it was. On page load,
+// check the last wall-clock-anchored checkpoint and offer to push the
+// correct elapsed time back into vMix (never applied silently — confirm first).
+// ═══════════════════════════════
+async function checkResumeState(){
+  try{
+    const r = await fetch('/matchlog/resume');
+    if(!r.ok) return;
+    const s = await r.json();
+    if(!s || !s.running) return;
+    const elapsed = s.clockSecondsAtAnchor + (Date.now() - new Date(s.anchorWallClock).getTime())/1000;
+    const secs = Math.max(0, Math.round(elapsed));
+    confirmAction('resumeclock', {secs, period:s.period});
+  }catch(e){ /* server not reachable yet — skip silently */ }
+}
+async function applyResumedClock(secs, period){
+  state.currentPeriod = period;
+  state.clockSeconds = Math.min(secs, getPeriodLimit(period));
+  await clockStart(0, true);   // force explicit position set -- vMix's own position after a crash isn't trustworthy
+                                // (clockStart() itself already logs the resulting clockEvent)
+  addLog('ok',`Resumed Match Clock at ${secsToHMS(state.clockSeconds)} after reopening`);
+  showToast('ตั้งเวลาต่อให้ vMix แล้ว','success');
+}
 
 function getSBInput(){return state.titleType==='logo'?'SB-LOGO.gtzip':'SB-TileName.gtzip';}
 function getPAInput(){return state.titleType==='logo'?'PA-LOGO.gtzip':'PA-TileName.gtzip';}
@@ -1859,6 +1897,12 @@ const confirmConfig = {
     body:'', // เติมข้อความตาม period ที่กดใน confirmAction
     yes:'เปลี่ยน Period',
   },
+  resumeclock: {
+    icon:'history',
+    title:'ตรวจพบเวลาที่ยังไม่ปิดไว้',
+    body:'', // เติมข้อความตามเวลาที่คำนวณได้ใน confirmAction
+    yes:'ตั้งเวลาต่อให้ vMix',
+  },
 };
 
 function confirmAction(action, arg) {
@@ -1871,6 +1915,10 @@ function confirmAction(action, arg) {
   if (action==='period') {
     const labels=['1ST','2ND','3RD','4TH'];
     body = `กำลังจะเปลี่ยนเป็น ${labels[arg-1]} PERIOD\n(ถ้านาฬิกาไม่ได้เดิน เวลาจะถูกตั้งไปจุดเริ่ม Period)\nยืนยันหรือไม่?`;
+  }
+  if (action==='resumeclock') {
+    const mm=String(Math.floor(arg.secs/60)).padStart(2,'0'), ss=String(arg.secs%60).padStart(2,'0');
+    body = `ตรวจพบว่า Match Clock กำลังเดินอยู่ก่อนโปรแกรมปิด (เช่น ไฟดับ)\nคำนวณแล้วควรอยู่ที่ ${mm}:${ss} (Period ${arg.period})\nต้องการตั้งเวลานี้ให้ vMix และเดินต่อเลยหรือไม่?`;
   }
   document.getElementById('confirmBody').textContent = body;
   document.getElementById('confirmYesBtn').innerHTML = `<span class="msr sm" style="vertical-align:-3px;">check</span> ${cfg.yes}`;
@@ -1892,6 +1940,7 @@ function confirmProceed() {
   if (a==='clockpause') clockPause();
   if (a==='clockreset') clockReset();
   if (a==='period') selectPeriod(arg);
+  if (a==='resumeclock') applyResumedClock(arg.secs, arg.period);
 }
 
 // ═══════════════════════════════
@@ -2949,6 +2998,7 @@ setMatchMode('thai');
 // ── MATCH CONFIG WIRING (vMixController is the source of truth) ──
 loadConfigFromServer();                      // initial load
 setInterval(loadConfigFromServer, 15000);    // pick up edits made on the desktop app
+checkResumeState();                          // was the match clock running when this last closed?
 // quick edits on phone/iPad: any input change in the Settings tab → save back
 (()=>{
   const panel=document.getElementById('panel-settings');

@@ -70,7 +70,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.5.0"
+APP_VERSION = "4.6.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -305,6 +305,36 @@ class MatchLog:
             records[-1]["awayScore"] = away_score
             self._save(records)
 
+    def clock_event(self, event, clock_seconds, period, wall_clock_at):
+        """Wall-clock-anchored checkpoint for the match clock, so a computer
+        crash/restart can recompute the correct elapsed time afterwards --
+        vMix's own Countdown object has no memory of its position once vMix
+        itself restarts. 'running' reflects state AFTER this event (a
+        'start'/'resume' leaves it running; 'pause'/'reset' stop it)."""
+        with self._lock:
+            records = self._load()
+            if not records:
+                return
+            record = records[-1]
+            record.setdefault("clockEvents", []).append({
+                "event": event, "clockSeconds": clock_seconds,
+                "period": period, "wallClockAt": wall_clock_at,
+            })
+            record["lastClockState"] = {
+                "running": event in ("start", "resume"),
+                "anchorWallClock": wall_clock_at,
+                "clockSecondsAtAnchor": clock_seconds,
+                "period": period,
+            }
+            self._save(records)
+
+    def last_clock_state(self):
+        with self._lock:
+            records = self._load()
+        if not records:
+            return None
+        return records[-1].get("lastClockState")
+
 
 MATCHLOG = MatchLog()
 
@@ -350,6 +380,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/config":
             payload = dict(CONFIG.get(), appVersion=APP_VERSION)
             self._send(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+        elif path == "/matchlog/resume":
+            self._send(200, json.dumps(MATCHLOG.last_clock_state(), ensure_ascii=False).encode("utf-8"))
         elif path.startswith("/logos/"):
             name = os.path.basename(path[len("/logos/"):])   # no traversal
             full = os.path.join(LOGO_DIR, name)
@@ -381,6 +413,9 @@ class Handler(BaseHTTPRequestHandler):
                     MATCHLOG.start(payload)
                 elif payload.get("action") == "score":
                     MATCHLOG.update_score(payload.get("homeScore", 0), payload.get("awayScore", 0))
+                elif payload.get("action") == "clockEvent":
+                    MATCHLOG.clock_event(payload.get("event", ""), payload.get("clockSeconds", 0),
+                                          payload.get("period", 1), payload.get("wallClockAt", ""))
                 else:
                     raise ValueError("unknown action")
                 self._send(200, b'{"ok":true}')
