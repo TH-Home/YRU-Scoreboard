@@ -326,9 +326,9 @@ body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-
 .period-btn.active{border-color:rgba(59,158,255,0.5);color:var(--accent-blue);background:rgba(59,158,255,0.1);}
 .period-btn:active{transform:scale(0.93);}
 .clock-controls{display:flex;gap:8px;margin-top:12px;width:100%;}
-.clock-btn{flex:1;padding:10px 8px;border:1px solid var(--glass-border);border-radius:var(--radius-md);
+.clock-btn{flex:1;padding:8px;border:1px solid var(--glass-border);border-radius:var(--radius-md);
   background:var(--glass-shine);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
-  transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:3px;}
+  transition:all 0.15s;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;}
 .clock-btn:active{transform:scale(0.93);}
 .clock-btn.startpause-btn{flex:3;}
 .clock-btn.reset-btn{flex:1;}
@@ -339,12 +339,13 @@ body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-
 .clock-btn.reset-btn{border-color:rgba(255,61,61,0.3);color:var(--accent-red);}
 .clock-btn.reset-btn:active{background:rgba(255,61,61,0.1);}
 .clock-btn-icon{font-size:16px;line-height:1;}
-.clock-btn-label{font-size:9px;letter-spacing:1px;}
+.clock-btn-label{font-size:11px;letter-spacing:0.5px;}
 /* landscape: keep the clock controls + Start Match button compact and
    centered instead of stretching full-width across a wide screen */
 @media (orientation:landscape){
   .clock-controls{max-width:320px;margin-left:auto;margin-right:auto;}
   .clock-inner .start-match-btn{max-width:320px;padding:11px;}
+  .period-switcher{max-width:320px;margin-left:auto;margin-right:auto;}
 }
 
 /* MACRO BUTTONS INSIDE CLOCK CARD — with confirmation guard */
@@ -880,7 +881,6 @@ select.field-input{cursor:pointer;
     <div class="clock-inner">
       <div class="clock-half-label" id="halfLabel">PERIOD 1</div>
       <div class="clock-display stopped" id="clockDisplay" onclick="editClockTime()">00:00</div>
-      <div class="period-switcher" id="periodSwitcher"></div>
       <div class="clock-controls">
         <button class="clock-btn startpause-btn start-state" id="startPauseBtn"
                 onclick="confirmAction(state.clockRunning?'clockpause':'clockstart')">
@@ -890,6 +890,7 @@ select.field-input{cursor:pointer;
           <span class="msr clock-btn-icon">replay</span><span class="clock-btn-label">Reset</span>
         </button>
       </div>
+      <div class="period-switcher" id="periodSwitcher"></div>
       <button class="start-match-btn" id="startMatchBtn" style="margin-top:10px;" onclick="confirmAction('startmatch')">
         <span class="msr">rocket_launch</span> <span id="startMatchLabel">Start Match</span>
       </button>
