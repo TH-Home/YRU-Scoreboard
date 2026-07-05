@@ -70,7 +70,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.6.0"
+APP_VERSION = "4.7.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -333,7 +333,11 @@ class MatchLog:
             records = self._load()
         if not records:
             return None
-        return records[-1].get("lastClockState")
+        record = records[-1]
+        state = record.get("lastClockState")
+        if not state:
+            return None
+        return dict(state, homeScore=record.get("homeScore", 0), awayScore=record.get("awayScore", 0))
 
 
 MATCHLOG = MatchLog()
