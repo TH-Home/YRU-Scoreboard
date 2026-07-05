@@ -520,6 +520,11 @@ select.field-input{cursor:pointer;
   justify-content:center;font-size:26px;border:2px solid var(--glass-border);transition:all 0.3s;}
 .connect-indicator.connected{border-color:var(--accent-green);background:rgba(0,230,118,0.1);box-shadow:0 0 30px rgba(0,230,118,0.2);}
 .connect-indicator.disconnected{border-color:var(--accent-red);background:rgba(255,61,61,0.08);}
+.readiness-list{display:flex;flex-direction:column;gap:5px;margin:0 16px 14px;padding-top:12px;border-top:1px solid var(--glass-border);}
+.readiness-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);}
+.readiness-item.ok{color:var(--accent-green);}
+.readiness-item.missing{color:var(--accent-red);}
+.readiness-icon{font-size:14px;}
 .connect-btn{width:100%;padding:11px;border-radius:var(--radius-md);border:1px solid var(--glass-border);
   background:var(--glass-shine);color:var(--text-primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
 .connect-btn.conn{border-color:rgba(0,230,118,0.4);color:var(--accent-green);}
@@ -1097,6 +1102,12 @@ select.field-input{cursor:pointer;
       <div class="connect-status-card">
         <div class="connect-indicator disconnected" id="connectIndicator"><span class="msr xl">settings_input_antenna</span></div>
         <div style="font-size:12px;color:var(--text-secondary);" id="connectSubtext">Not connected to vMix</div>
+      </div>
+      <div class="readiness-list" id="readinessList">
+        <div class="readiness-item" data-input="SB-LOGO.gtzip"><span class="msr sm readiness-icon">help</span><span>SB-LOGO.gtzip</span></div>
+        <div class="readiness-item" data-input="PA-LOGO.gtzip"><span class="msr sm readiness-icon">help</span><span>PA-LOGO.gtzip</span></div>
+        <div class="readiness-item" data-input="Countdown.mp4"><span class="msr sm readiness-icon">help</span><span>Countdown.mp4</span></div>
+        <div class="readiness-item" data-input="Goal.mp4"><span class="msr sm readiness-icon">help</span><span>Goal.mp4</span></div>
       </div>
       <div class="field-row">
         <button class="connect-btn conn" onclick="connectVmix()"><span class="msr sm" style="vertical-align:-3px;">check_circle</span> Connect</button>
@@ -2483,6 +2494,20 @@ async function fetchVmixState(){
   }
 }
 
+// Readiness check: confirm the small set of Inputs Thai League actually
+// needs (SB-LOGO, PA-LOGO, Countdown.mp4, Goal.mp4) are loaded in vMix --
+// intentionally NOT exhaustive (SB-TileName/PA-TileName etc.), just the
+// files people sometimes forget to copy in.
+function updateReadinessCheck(){
+  const titles = new Set(state.vmixInputs.map(i=>i.title));
+  document.querySelectorAll('#readinessList .readiness-item').forEach(el=>{
+    const present = titles.has(el.dataset.input);
+    el.classList.toggle('ok', present);
+    el.classList.toggle('missing', !present);
+    el.querySelector('.readiness-icon').textContent = present ? 'check_circle' : 'cancel';
+  });
+}
+
 function parseVmixXML(xmlText){
   try{
     const doc=new DOMParser().parseFromString(xmlText,'text/xml');
@@ -2496,7 +2521,7 @@ function parseVmixXML(xmlText){
       if(on!==state.ftbActive){ state.ftbActive=on; updateFTBButton(); }
     }
     if(!inputs.length){
-      state.vmixInputs=[]; renderVicGrid();
+      state.vmixInputs=[]; renderVicGrid(); updateReadinessCheck();
       return;
     }
 
@@ -2580,6 +2605,7 @@ function parseVmixXML(xmlText){
     // Re-render input control cards
     renderVicGrid();
     updateTransportModel();   // อัปเดต transport bar ของ PGM (เวลา/seek/volume)
+    updateReadinessCheck();
     // Log เฉพาะตอนจำนวน input เปลี่ยน ไม่ log ทุก poll
     if(state.vmixInputs.length !== (state._lastInputCount||0)){
       addLog('ok',`${inputs.length} inputs`);
