@@ -136,8 +136,8 @@ body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-
   background:#0b1220;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   box-shadow:0 6px 16px -6px rgba(0,0,0,0.6);}
 .vic-card .card-header{border-bottom:none;}
-/* ── แถวเสียง (บนสุดของการ์ด) — กว้างเท่าฝั่ง badge PGM ชิดขวา ── */
-.vic-volume-row{display:flex;align-items:center;gap:8px;padding:8px 14px 0;margin-left:auto;width:52%;}
+/* ── แถบเสียง — อยู่บรรทัดเดียวกับไอคอน/ชื่อการ์ด/ปุ่ม refresh เสมอ (ทั้งแนวตั้งและแนวนอน) ── */
+.vic-volume-row{display:flex;align-items:center;gap:8px;flex:0 1 220px;min-width:120px;}
 .vic-vol-val{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);width:24px;text-align:right;flex-shrink:0;}
 /* ── slider ร่วม (seek + volume) ── */
 .tp-range{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:22px;background:transparent;cursor:pointer;}
@@ -193,7 +193,7 @@ body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-
   .tp-seek{order:4;}
   .tp-play{order:5;}
 }
-/* แนวนอน: บรรทัดเดียว Reset · Elapsed · seek · Remaining · Play + ซ่อนป้ายชื่อการ์ด */
+/* แนวนอน: บรรทัดเดียว Reset · Elapsed · seek · Remaining · Play */
 @media(min-width:601px){
   .vic-transport{flex-wrap:nowrap;column-gap:10px;}
   .vic-transport>.tp-btn:first-of-type{order:1;}
@@ -201,8 +201,6 @@ body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-
   .tp-seek{order:3;}
   .tp-remain{order:4;flex:0 0 auto;text-align:right;}
   .tp-play{order:5;}
-  .vic-card-header .vic-card-title,.vic-card-header .vic-card-icon{display:none;}
-  .vic-volume-row{width:40%;padding-top:8px;}
 }
 @media(min-width:768px){
   .vic-card{top:-16px;margin:-16px -24px 0;}
@@ -575,6 +573,7 @@ select.field-input{cursor:pointer;
   display:flex;align-items:center;gap:3px;flex-shrink:0;}
 .vic-status-badge.pgm{background:rgba(255,61,61,0.2);color:var(--accent-red);border:1px solid rgba(255,61,61,0.4);}
 .vic-status-badge.pvw{background:rgba(0,230,118,0.15);color:var(--accent-green);border:1px solid rgba(0,230,118,0.35);}
+.vic-status-badge.playing{background:rgba(0,230,118,0.15);color:var(--accent-green);border:1px solid rgba(0,230,118,0.35);}
 /* row 2: title + playlist btn */
 .vic-title-row{display:flex;align-items:center;gap:6px;padding:0 10px 8px;min-width:0;}
 .vic-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
@@ -583,9 +582,6 @@ select.field-input{cursor:pointer;
   background:transparent;color:var(--accent-green);font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;
   transition:all 0.12s;white-space:nowrap;}
 .vic-addpl-btn:active{transform:scale(0.92);background:rgba(0,230,118,0.1);}
-/* playing indicator row */
-.vic-playing-row{display:flex;align-items:center;gap:5px;padding:0 10px 6px;}
-.vic-playing-indicator{display:flex;align-items:center;gap:5px;}
 /* 7 control buttons */
 .vic-controls{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:4px 8px 10px;border-top:1px solid var(--glass-border);}
 .vic-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;
@@ -629,19 +625,12 @@ select.field-input{cursor:pointer;
 .vic-pvw-name{color:var(--text-primary);}
 .vic-pgm-name{color:var(--text-primary);text-align:right;}
 
-/* PORTRAIT (≤600px): title + refresh on row 1, PVW+Fade+PGM as a full-width block below (2 rows) */
-@media(max-width:600px){
-  .vic-card-header{padding:10px 12px;}
-  .vic-card-title{flex:1;}
-  .vic-refresh{order:2;}
-  .vic-pgm-pvw-bar{order:3;flex-basis:100%;width:100%;}      /* drop to its own row */
-}
-/* LANDSCAPE (≥601px): one line — title · PVW [src] · Fade · [src] PGM · refresh */
-@media(min-width:601px){
-  .vic-card-header{flex-wrap:nowrap;}
-  .vic-card-title{flex:0 0 auto;}
-  .vic-pgm-pvw-bar{flex:1;min-width:0;}
-}
+/* Same layout in portrait and landscape: icon · title · volume bar (if playing) ·
+   refresh all on row 1; PVW+Fade+PGM always drops to its own full-width row below */
+.vic-card-header{padding:10px 12px;}
+.vic-card-title{flex:1;}
+.vic-refresh{order:2;}
+.vic-pgm-pvw-bar{order:3;flex-basis:100%;width:100%;}
 /* TOAST */
 /* Connection-lost banner — drops from the top so it's visible on every tab */
 .conn-banner{position:fixed;top:0;left:0;right:0;z-index:9998;
@@ -774,15 +763,15 @@ select.field-input{cursor:pointer;
   <!-- vMix INPUTS — PVW/PGM bar, pinned to top -->
   <div class="card full-width vic-card">
     <!-- แถวเสียง (บนสุด) — คุมเสียงของ input ที่อยู่ PGM -->
-    <div class="vic-volume-row" id="vicVolumeRow" style="display:none;">
-      <span class="msr sm" id="vicVolIcon" style="color:var(--accent-cyan);">volume_up</span>
-      <input type="range" class="tp-range vol-range" id="vicVolSlider" min="0" max="100" value="100"
-             oninput="volSliderInput(this)">
-      <span class="vic-vol-val" id="vicVolVal">100</span>
-    </div>
     <div class="card-header vic-card-header">
       <div class="card-header-icon vic-card-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">cast</span></div>
       <div class="card-header-title vic-card-title">vMix Inputs</div>
+      <div class="vic-volume-row" id="vicVolumeRow" style="display:none;">
+        <span class="msr sm" id="vicVolIcon" style="color:var(--accent-cyan);">volume_up</span>
+        <input type="range" class="tp-range vol-range" id="vicVolSlider" min="0" max="100" value="100"
+               oninput="volSliderInput(this)">
+        <span class="vic-vol-val" id="vicVolVal">100</span>
+      </div>
       <div id="vicPgmPvwBar" class="vic-pgm-pvw-bar">
         <div class="pvw-side">
           <span class="vic-pvw-label">PVW</span>
@@ -1576,19 +1565,16 @@ function renderVicGrid(){
       ? `<span class="vic-duration" title="ความยาวไฟล์ทั้งหมด"><span class="msr sm" style="font-size:10px;">schedule</span>${fmtHMS(inp.duration)}</span>`
       : '';
     const isLoop = !!state.inputLoop[inp.title];
-    const playingRow = isPlaying ? `
-      <div class="vic-playing-row">
-        <div class="vic-playing-indicator">
-          <div class="playing-wave" style="height:10px;"><span></span><span></span><span></span></div>
-          <span style="font-size:9px;color:var(--accent-green);">${isAudioOnly?'AUDIO ONLY':'PLAYING'}</span>
-        </div>
-      </div>` : '';
+    const playingBadge = isPlaying
+      ? `<span class="vic-status-badge playing"><span class="msr sm" style="font-size:8px;">graphic_eq</span>${isAudioOnly?'AUDIO ONLY':'PLAYING'}</span>`
+      : '';
 
     return `<div class="${cardClass}" id="vic-${inp.num}">
       <div class="vic-meta-row">
         <span class="vic-num">#${inp.num}</span>
         <span class="vic-type-badge">${inp.type||'Input'}</span>
         ${durationBadge}
+        ${playingBadge}
         <span class="vic-meta-spacer"></span>
         ${statusBadge}
       </div>
@@ -1596,7 +1582,6 @@ function renderVicGrid(){
         <span class="vic-title">${inp.title}</span>
         ${addPlBtn}
       </div>
-      ${playingRow}
       <div class="vic-controls">
         <button class="vic-btn overlay" onclick="vicOverlay('${inp.title}')" title="Overlay บน PGM">
           <span class="msr sm">layers</span><span class="vic-btn-label">Overlay</span>
@@ -1650,19 +1635,20 @@ function updateVicCard(inp){
     }
   }
 
-  // playing indicator row (add/remove)
-  let prow=card.querySelector('.vic-playing-row');
-  if(isPlaying && !prow){
-    const titleRow=card.querySelector('.vic-title-row');
-    titleRow.insertAdjacentHTML('afterend',
-      `<div class="vic-playing-row"><div class="vic-playing-indicator">
-        <div class="playing-wave" style="height:10px;"><span></span><span></span><span></span></div>
-        <span style="font-size:9px;color:var(--accent-green);">${isAudioOnly?'AUDIO ONLY':'PLAYING'}</span>
-      </div></div>`);
-  } else if(!isPlaying && prow){ prow.remove(); }
-  else if(isPlaying && prow){
-    const lbl=prow.querySelector('span[style*="accent-green"]');
-    if(lbl) lbl.textContent=isAudioOnly?'AUDIO ONLY':'PLAYING';
+  // playing badge, inline in the top meta row (before the PGM/PVW badge)
+  if(meta){
+    let pbadge=meta.querySelector('.vic-status-badge.playing');
+    if(!isPlaying){ if(pbadge) pbadge.remove(); }
+    else{
+      const label=isAudioOnly?'AUDIO ONLY':'PLAYING';
+      if(pbadge){ pbadge.lastChild.textContent=label; }
+      else{
+        const html=`<span class="vic-status-badge playing"><span class="msr sm" style="font-size:8px;">graphic_eq</span>${label}</span>`;
+        const spacer=meta.querySelector('.vic-meta-spacer');
+        if(spacer) spacer.insertAdjacentHTML('beforebegin',html);
+        else meta.insertAdjacentHTML('beforeend',html);
+      }
+    }
   }
 
   // toggle button active states + icons
