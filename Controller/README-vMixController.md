@@ -67,7 +67,7 @@
 
 ## กติกา Timing (คงตาม v4)
 
-- Thai League: Start จับเวลาแข่งจริงที่ **(Countdown duration − 1750ms)** เสมอ
+- Countdown Mode: Start จับเวลาแข่งจริงที่ **(Countdown duration − 1750ms)** เสมอ
 - General Mode: ไม่เกี่ยวกับ Countdown เลย (pre-warm 2000ms ของตัวเอง)
 
 ## Checklist ก่อนวันจริง

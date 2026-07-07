@@ -12,7 +12,7 @@ Responsibilities
        GET  /logos/<file>    → serve logo images (for web previews)
   2. Match Setup GUI (dark theme matching the web app):
        - Connection URLs (Server / LAN IP / WiFi IP) with Copy buttons
-       - Setup Mode  : Match Mode (Thai League / General), Title Type (Logo / Title)
+       - Setup Mode  : Match Mode (Countdown / General), Title Type (Logo / Title)
        - Match Setup : Day / Date / Month / Year / Kick Off, Periods 2–4,
                        minutes per period, Clock Mode
        - Competition & Teams : names, colors, logos (Drag & Drop)
@@ -70,7 +70,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.9.0"
+APP_VERSION = "4.10.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -104,7 +104,7 @@ DEFAULT_CONFIG = {
     "awayColor": "#8b0000",
     "awayLogo": "",
     # Timing
-    "countdownDuration": 7000,    # Thai League only; match clock starts at (dur - 1750ms)
+    "countdownDuration": 7000,    # Countdown Mode only; match clock starts at (dur - 1750ms)
     "goalDuration": 13000,
 }
 
@@ -769,7 +769,7 @@ class App:
         c2.pack(**pad)
         r = tk.Frame(b2, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Match Mode", width=12).pack(side="left")
-        Segmented(r, [("thai", "Thai League"), ("general", "General")], self.v["matchMode"]).pack(side="left")
+        Segmented(r, [("thai", "Countdown"), ("general", "General")], self.v["matchMode"]).pack(side="left")
         r = tk.Frame(b2, bg=C["card"]); r.pack(fill="x", pady=3)
         label(r, "Title Type", width=12).pack(side="left")
         Segmented(r, [("logo", "Logo"), ("title", "Title")], self.v["titleType"], accent=C["purple"]).pack(side="left")

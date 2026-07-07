@@ -678,7 +678,7 @@ select.field-input{cursor:pointer;
     </div>
   </div>
   <div class="header-controls">
-    <span class="mode-badge" id="modeBadge" title="Match Mode · Title Type — ตั้งค่าที่โปรแกรม vMixController บนคอมพิวเตอร์">Thai League · Logo</span>
+    <span class="mode-badge" id="modeBadge" title="Match Mode · Title Type — ตั้งค่าที่โปรแกรม vMixController บนคอมพิวเตอร์">Countdown · Logo</span>
     <button class="ftb-btn" id="ftbBtn" onclick="toggleFTB()" title="Fade To Black — ตัดจอดำฉุกเฉิน">
       <span class="msr" style="font-size:14px;">tv_off</span><span class="ftb-txt">FTB</span>
     </button>
@@ -935,40 +935,21 @@ select.field-input{cursor:pointer;
       <div class="card-header-title">Match Date & Kick Off</div>
     </div>
     <div class="card-body center-fields">
-      <!-- Row 1: Day of week dropdown -->
+      <!-- Native date picker -- day/month/year wheel on mobile, bounded 2025-2033
+           so a slip can't land on a Buddhist-Era-looking year by accident.
+           Day of Week/Date/Month/Year are derived from this and kept as hidden
+           fields so the rest of the app (config schema, vMix sync) is unchanged. -->
       <div class="field-group">
-        <div class="field-label">Day of Week</div>
-        <select class="field-input" id="matchDayOfWeek" onchange="updatePreview()">
-          <option value="">— Select Day —</option>
-          <option>Sunday</option><option>Monday</option><option>Tuesday</option>
-          <option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
-        </select>
+        <div class="field-label">Match Date</div>
+        <input class="field-input" id="matchDatePicker" type="date" min="2025-01-01" max="2033-12-31"
+               onchange="onMatchDatePicked()" style="width:100%;">
       </div>
-      <!-- Row 2: Date (text) | Month (dropdown) | Year (text) -->
-      <div class="field-row-3">
-        <div class="field-group">
-          <div class="field-label">Date</div>
-          <input class="field-input" id="matchDay" type="text" maxlength="2" placeholder="24" oninput="updatePreview()">
-        </div>
-        <div class="field-group">
-          <div class="field-label">Month</div>
-          <select class="field-input" id="matchMonth" onchange="updatePreview()">
-            <option value="">Month</option>
-            <option>January</option><option>February</option><option>March</option>
-            <option>April</option><option>May</option><option>June</option>
-            <option>July</option><option>August</option><option>September</option>
-            <option>October</option><option>November</option><option>December</option>
-          </select>
-        </div>
-        <div class="field-group">
-          <div class="field-label">Year</div>
-          <input class="field-input" id="matchYear" type="text" maxlength="4" placeholder="2568" oninput="updatePreview()">
-        </div>
-      </div>
+      <input type="hidden" id="matchDayOfWeek"><input type="hidden" id="matchDay">
+      <input type="hidden" id="matchMonth"><input type="hidden" id="matchYear">
       <!-- Row 3: Kick Off full width -->
       <div class="field-group">
         <div class="field-label">Kick Off</div>
-        <input class="field-input" id="kickOff" type="time" value="15:00" oninput="updatePreview()" style="width:100%;">
+        <input class="field-input" id="kickOff" type="time" value="15:00" oninput="updatePreview();scheduleVmixSync()" style="width:100%;">
       </div>
       <div class="date-preview" id="datePreview">— กรอกข้อมูลวันที่ —</div>
     </div>
@@ -985,7 +966,7 @@ select.field-input{cursor:pointer;
       <div style="font-size:12px;color:var(--text-muted);"><span class="msr sm" style="vertical-align:-3px;">computer</span> ตั้งค่าหลักที่โปรแกรม vMixController บนคอมพิวเตอร์ — หน้านี้ไว้แก้ด่วนบนมือถือ/ไอแพด (บันทึกกลับให้อัตโนมัติ)</div>
       <div class="field-group" id="compNameGroup">
         <div class="field-label">Competition Name</div>
-        <input class="field-input" id="compName" placeholder="YRU Football League 2025" oninput="updatePreview();updateSBPreview()">
+        <input class="field-input" id="compName" placeholder="YRU Football League 2025" oninput="updatePreview();updateSBPreview();scheduleVmixSync()">
       </div>
       <div class="field-group" id="compLogoGroup" style="display:none;">
         <div class="field-label">Competition Logo <span style="color:var(--text-muted);font-size:12px;text-transform:none;letter-spacing:normal;">(อัปโหลดไฟล์ที่โปรแกรม vMixController — แก้ชื่อไฟล์ด่วนได้ที่นี่)</span></div>
@@ -1001,7 +982,7 @@ select.field-input{cursor:pointer;
         <div class="team-body">
           <div class="field-group">
             <div class="field-label">Team Name</div>
-            <input class="field-input" id="homeName" placeholder="Home FC" oninput="updateTeamDisplay()">
+            <input class="field-input" id="homeName" placeholder="Home FC" oninput="updateTeamDisplay();scheduleVmixSync()">
           </div>
           <div class="field-group">
             <div class="field-label">Team Color</div>
@@ -1026,7 +1007,7 @@ select.field-input{cursor:pointer;
         <div class="team-body">
           <div class="field-group">
             <div class="field-label">Team Name</div>
-            <input class="field-input" id="awayName" placeholder="Away United" oninput="updateTeamDisplay()">
+            <input class="field-input" id="awayName" placeholder="Away United" oninput="updateTeamDisplay();scheduleVmixSync()">
           </div>
           <div class="field-group">
             <div class="field-label">Team Color</div>
@@ -2066,7 +2047,7 @@ function isPgmOnSB(){
 }
 
 // Period 2/3/4: a normal clock start for that period — no Countdown.mp4
-// involved either way (Thai League or General), regardless of match mode.
+// involved either way (Countdown or General), regardless of match mode.
 async function startPeriod(){
   const sbInput = getSBInput();
   if (!isPgmOnSB()){
@@ -2083,7 +2064,7 @@ async function startMatch() {
   const sbInput=getSBInput();
 
   if (state.matchMode==='thai') {
-    // Countdown duration (Timing Settings) ใช้เฉพาะ Thai League Mode เท่านั้น
+    // Countdown duration (Timing Settings) ใช้เฉพาะ Countdown Mode เท่านั้น
     const cdDur=parseInt(document.getElementById('countdownDuration').value)||7000;
     // กติกาคงที่: ไม่ว่า Countdown duration จะตั้งเท่าไหร่ Start ต้องเริ่มจับเวลาแข่งขันจริง
     // ที่ (Countdown duration − 1750ms) เสมอ — 1750ms คือค่าที่ตรงกับ "Kick Off" ในวิดีโอ Countdown.mp4
@@ -2146,7 +2127,7 @@ async function startMatch() {
 function updateModeBadge(){
   const el=document.getElementById('modeBadge');
   if(el) el.textContent =
-    (state.matchMode==='thai'?'Thai League':'General') + ' · ' +
+    (state.matchMode==='thai'?'Countdown':'General') + ' · ' +
     (state.titleType==='logo'?'Logo':'Title');
 }
 function setTitleType(type){
@@ -2170,6 +2151,38 @@ function setMatchMode(mode){
       <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>`
     :`<div class="flow-step"><span class="msr sm flow-arrow">radio_button_checked</span><span class="flow-name">PA Screen</span></div>
       <div class="flow-step flow-active"><span class="msr sm flow-arrow">arrow_downward</span><span class="flow-name">Scoreboard → Timer starts</span></div>`;
+}
+const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function onMatchDatePicked(){
+  const val=document.getElementById('matchDatePicker').value; // "YYYY-MM-DD"
+  if(!val){
+    document.getElementById('matchDayOfWeek').value='';
+    document.getElementById('matchDay').value='';
+    document.getElementById('matchMonth').value='';
+    document.getElementById('matchYear').value='';
+  } else {
+    const [y,mo,d]=val.split('-').map(Number);
+    const dt=new Date(y,mo-1,d);
+    document.getElementById('matchDayOfWeek').value=DOW_NAMES[dt.getDay()];
+    document.getElementById('matchDay').value=String(d);
+    document.getElementById('matchMonth').value=MONTH_NAMES[mo-1];
+    document.getElementById('matchYear').value=String(y);
+  }
+  updatePreview();
+  scheduleVmixSync();
+}
+function syncDatePickerFromFields(){
+  const d=parseInt(document.getElementById('matchDay').value,10);
+  const mi=MONTH_NAMES.indexOf(document.getElementById('matchMonth').value);
+  const y=parseInt(document.getElementById('matchYear').value,10);
+  const picker=document.getElementById('matchDatePicker');
+  picker.value=(d&&mi>=0&&y)?`${y}-${String(mi+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`:'';
+}
+let _vmixSyncTimer=null;
+function scheduleVmixSync(){
+  if(_vmixSyncTimer) clearTimeout(_vmixSyncTimer);
+  _vmixSyncTimer=setTimeout(()=>{ _vmixSyncTimer=null; if(state.connected) sendAllToVmixSilent(); },700);
 }
 function updatePreview(){
   const dow=document.getElementById('matchDayOfWeek').value;
@@ -2480,7 +2493,7 @@ async function fetchVmixState(){
   }
 }
 
-// Readiness check: confirm the small set of Inputs Thai League actually
+// Readiness check: confirm the small set of Inputs Countdown Mode actually
 // needs (SB-LOGO, PA-LOGO, Countdown.mp4, Goal.mp4) are loaded in vMix --
 // intentionally NOT exhaustive (SB-TileName/PA-TileName etc.), just the
 // files people sometimes forget to copy in.
@@ -2633,6 +2646,7 @@ function applyConfig(cfg){
     // Match Setup
     set('matchDayOfWeek',cfg.dayOfWeek); set('matchDay',cfg.date);
     set('matchMonth',cfg.month); set('matchYear',cfg.year); set('kickOff',cfg.kickOff);
+    syncDatePickerFromFields();
     if(cfg.periodCount){ state.periodCount=parseInt(cfg.periodCount)||2; rebuildPeriodSwitcher();
       const pc=document.getElementById('periodCountDisplay'); if(pc) pc.textContent=state.periodCount; }
     if(cfg.periodMins){ state.periodMins=parseInt(cfg.periodMins)||45;
