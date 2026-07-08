@@ -2083,6 +2083,7 @@ async function startMatch() {
     // Everything non-urgent (team names, dates, scores) syncs in the
     // background while Countdown.mp4 is already playing on screen.
     sendAllToVmixSilent();
+    pushScoreToVmix();
 
     // ── TIMING FIX FOR NATURAL-LOOKING TRANSITION ──
     // The countdown starts (StartCountdown) at cdDur-PRESTART_MS (1750ms) — fixed,
@@ -2111,6 +2112,7 @@ async function startMatch() {
     const GENERAL_PRESTART_MS = 2000; // ดีเลย์ก่อนเผย SB ให้นาฬิกาเริ่มจาก ~00:02 แทนกระโดดจาก 00:00
     showToast('Starting Match...','info');
     sendAllToVmixSilent();
+    pushScoreToVmix();
     await selectPeriod(1);
     await clockStart(GENERAL_PRESTART_MS/1000);
     // Let it run silently for GENERAL_PRESTART_MS before revealing SB, same trick.
@@ -2231,13 +2233,24 @@ async function syncAllToVmix(){
     btn.innerHTML = oldHTML;
   }
 }
+// Score is live game-state, not a "config field" — push it ONLY on an explicit
+// action (score tap, resume-after-crash, Start Match, manual Sync), never from
+// an automatic/recurring sync. Multiple devices each have their own local
+// state.homeScore/awayScore that can go briefly stale between vMix polls;
+// having every routine background sync also push score caused it to bounce
+// between devices' stale values and vMix's real one.
+function pushScoreToVmix(){
+  for(const inp of ['SB-LOGO.gtzip','SB-TileName.gtzip']){
+    vmixFire('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)});
+    vmixFire('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)});
+  }
+}
 async function sendAllToVmixSilent(){
   const paLogo     = 'PA-LOGO.gtzip';
   const paTileName = 'PA-TileName.gtzip';
   const sbLogo     = 'SB-LOGO.gtzip';
   const sbTileName = 'SB-TileName.gtzip';
   const allPA  = [paLogo, paTileName];
-  const allSB  = [sbLogo, sbTileName];
   const allFiles = [paLogo, paTileName, sbLogo, sbTileName];
 
   const cn  = document.getElementById('compName').value;
@@ -2275,12 +2288,7 @@ async function sendAllToVmixSilent(){
     if(homeLogoFile) jobs.push(vmixApi('SetImage',{Input:inp,SelectedName:'Logo-Home.Source',Value:getLogoFullPath(homeLogoFile)}));
     if(awayLogoFile) jobs.push(vmixApi('SetImage',{Input:inp,SelectedName:'Logo-Away.Source',Value:getLogoFullPath(awayLogoFile)}));
   }
-
-  // ── SB-only fields (Score) → SB-LOGO + SB-TileName ──
-  for(const inp of allSB){
-    jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)}));
-    jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)}));
-  }
+  // Score is NOT pushed here — see pushScoreToVmix() above for why.
 
   await Promise.all(jobs);
   addLog('ok',`Sync เสร็จสิ้น (${jobs.length} fields, parallel)`);
