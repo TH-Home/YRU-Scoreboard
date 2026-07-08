@@ -2440,7 +2440,11 @@ function playPlaylistItem(idx){
     vmixFire('SetVolume',{Input:ref,Value:String(item.volume)});
     vmixFire('AudioBusOn',{Input:ref,Value:'A'});vmixFire('AudioOn',{Input:ref});vmixFire('Play',{Input:ref});
   }
-  state._plAdvanceTimer=setTimeout(()=>{state._plAdvanceTimer=null;if(state.plRunning)playPlaylistItem(idx+1);},10000);
+  // Auto-advance after the item's REAL duration (from vMix), not a guess —
+  // a fixed 10s here used to cut every longer file off mid-playback.
+  const vInp=state.vmixInputs.find(i=>i.title===item.name);
+  const durMs=(vInp && vInp.duration>0) ? vInp.duration : 10000;
+  state._plAdvanceTimer=setTimeout(()=>{state._plAdvanceTimer=null;if(state.plRunning)playPlaylistItem(idx+1);},durMs);
 }
 function playlistNext(){if(!state.plRunning)return;playPlaylistItem(state.plIndex+1);}
 function playlistStop(){
