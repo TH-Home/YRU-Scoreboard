@@ -70,7 +70,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.10.0"
+APP_VERSION = "4.11.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -738,6 +738,7 @@ class App:
         c1, b1 = card(self.col, "Connection — เปิดบนมือถือ/ไอแพด", "📡", C["green"])
         c1.pack(**pad)
         self.url_rows = {}
+        self.copy_btns = {}
         for key, name in (("server", "Server"), ("lan", "Lan IP"), ("wifi", "WiFi IP")):
             row = tk.Frame(b1, bg=C["card"]); row.pack(fill="x", pady=3)
             label(row, f"{name} :", font=FONT_BOLD, fg=C["text"]).pack(side="left")
@@ -746,6 +747,7 @@ class App:
             btn = flat_button(row, "Copy", lambda k=key: self.copy_url(k), fg=C["blue"])
             btn.pack(side="right")
             self.url_rows[key] = url_lbl
+            self.copy_btns[key] = btn
         rowb = tk.Frame(b1, bg=C["card"]); rowb.pack(fill="x", pady=(6, 0))
         flat_button(rowb, "↻ Refresh IPs", self.refresh_urls, fg=C["text2"]).pack(side="left")
         flat_button(rowb, "🌐 เปิดเว็บแอพ", lambda: webbrowser.open(f"http://127.0.0.1:{HTTP_PORT}"),
@@ -1044,6 +1046,10 @@ class App:
             self.root.clipboard_append(url)
             self.status_lbl.configure(text=f"✓ Copied {url}", fg=C["cyan"])
             self.root.after(2500, lambda: self.status_lbl.configure(text="● Server running", fg=C["green"]))
+            btn = self.copy_btns.get(key)
+            if btn:
+                btn.configure(text="✓")
+                self.root.after(1000, lambda: btn.configure(text="Copy"))
 
     # ── colors ───────────────────────────────────────────────────────────────
     def pick_color(self, team):

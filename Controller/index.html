@@ -66,7 +66,7 @@ body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-
 .ftb-btn.active{background:var(--accent-red);color:#fff;border-color:var(--accent-red);
   animation:ftbPulse 0.9s ease-in-out infinite;}
 @keyframes ftbPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,61,0.6);}50%{box-shadow:0 0 0 5px rgba(255,61,61,0);}}
-@media(max-width:600px){.ftb-txt{display:none;}.ftb-btn{padding:4px 6px;}}
+@media(max-width:600px){.ftb-btn{padding:4px 6px;}}
 .vmix-status-badge{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;
   border:1px solid var(--glass-border);background:var(--glass-shine);cursor:pointer;transition:all 0.2s;font-size:10px;font-weight:600;white-space:nowrap;}
 .sync-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;
@@ -762,11 +762,11 @@ select.field-input{cursor:pointer;
 
   <!-- vMix INPUTS — PVW/PGM bar, pinned to top -->
   <div class="card full-width vic-card">
-    <!-- แถวเสียง (บนสุด) — คุมเสียงของ input ที่อยู่ PGM -->
+    <!-- แถวเสียง (บนสุด) — คุม Main (Master bus) volume ของ vMix โดยรวม -->
     <div class="card-header vic-card-header">
       <div class="card-header-icon vic-card-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">cast</span></div>
       <div class="card-header-title vic-card-title">vMix Inputs</div>
-      <div class="vic-volume-row" id="vicVolumeRow" style="display:none;">
+      <div class="vic-volume-row" id="vicVolumeRow" style="display:none;" title="Main (Master) Volume">
         <span class="msr sm" id="vicVolIcon" style="color:var(--accent-cyan);">volume_up</span>
         <input type="range" class="tp-range vol-range" id="vicVolSlider" min="0" max="100" value="100"
                oninput="volSliderInput(this)">
@@ -1213,10 +1213,12 @@ const state = {
   homeName:'HOME', awayName:'AWAY',
   homeColor:'#1a3a6b', awayColor:'#8b0000',
   playlist:[], plIndex:-1, plRunning:false, plLoop:false, plAudioOnly:false,
+  _plCurrentItem:null, _plAdvanceTimer:null,   // item actually live right now + its auto-advance timer
   pendingAction:null, ftbActive:false,
   vmixInputs:[],        // [{num, title, type, state, duration, key}]
   vmixActive:null,      // PGM input number
   vmixPreview:null,     // PVW input number
+  mainVolume:100,       // vMix Master bus volume (0-100), synced from XML
   inputAudioOnly:{},    // {inputTitle: bool} — audio-only mode per input
   inputPlaying:{},      // {inputTitle: bool} — playing state per input
   inputLoop:{},         // {inputTitle: bool} — loop state per input
@@ -2383,56 +2385,68 @@ function removeFromPlaylist(i){
   state.playlist.splice(i,1);
   renderPlaylist();
 }
+// Fully stop + reset one playlist item: cut its audio, pause it, and rewind
+// to 0 so it's always ready to start fresh next time — never left mid-way.
+function resetPlaylistItemPlayback(item){
+  if(!item) return;
+  const ref=inputRef(item.name);
+  vmixFire('AudioOff',{Input:ref});
+  vmixFire('AudioBusOff',{Input:ref,Value:'A'});
+  vmixFire('Pause',{Input:ref});
+  vmixFire('SetPosition',{Input:ref,Value:'0'});
+}
 function playlistPlay(){
   if(!state.playlist.length){showToast('Playlist ว่างเปล่า','error');return;}
-  state.plRunning=true;state.plIndex=0;
+  state.plRunning=true;
   document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">pause</span> <span class="pl-btn-txt">Playing</span>';
   playPlaylistItem(0);
 }
 function playPlaylistItem(idx){
+  // Stop + rewind whatever the playlist was just playing before starting the
+  // next one — at most one Source's audio should ever be live at a time.
+  if(state._plAdvanceTimer){ clearTimeout(state._plAdvanceTimer); state._plAdvanceTimer=null; }
+  const prev=state._plCurrentItem; state._plCurrentItem=null;
+  if(prev) resetPlaylistItemPlayback(prev);
+
   if(idx>=state.playlist.length){
-    if(state.plLoop){state.plIndex=0;playPlaylistItem(0);}
+    if(state.plLoop){ playPlaylistItem(0); }
     else{state.plRunning=false;state.plIndex=-1;document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">play_arrow</span> <span class="pl-btn-txt">Play</span>';renderPlaylist();showToast('Playlist finished','info');}
     return;
   }
   state.plIndex=idx;const item=state.playlist[idx];renderPlaylist();
+  state._plCurrentItem=item;
   const ref=inputRef(item.name);
   document.getElementById('nowPlayingSection').style.display='';
+  vmixFire('SetPosition',{Input:ref,Value:'0'});   // every item always starts from the beginning
 
   if(state.plAudioOnly){
     // BACKGROUND AUDIO for the whole playlist: sound on Bus A only — no Cut/Fade.
     // PGM stays on whatever is live (PA / Scoreboard). Music/ads under the scoreboard.
     document.getElementById('nowPlayingName').textContent=item.name+'  🎵 (Audio Only)';
     showToast(`Audio Only: ${item.name} — PGM คงเดิม`,'info');
-    vmixFire('SetPosition',{Input:ref,Value:'0'});
     vmixFire('SetVolume',{Input:ref,Value:String(item.volume)});
     vmixFire('AudioBusOn',{Input:ref,Value:'A'});
     vmixFire('AudioOn',{Input:ref});
     vmixFire('Play',{Input:ref});
-    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
   } else if(item.type==='video'){
     document.getElementById('nowPlayingName').textContent=item.name;
     showToast(`Playing: ${item.name}`,'info');
     vmixFire('SetVolume',{Input:ref,Value:String(item.volume)});
+    vmixFire('AudioOn',{Input:ref});
     vmixFire('Fade',{Input:ref,Duration:'500'});vmixFire('Play',{Input:ref});
-    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
   } else {
     document.getElementById('nowPlayingName').textContent=item.name;
     showToast(`Playing: ${item.name}`,'info');
     vmixFire('SetVolume',{Input:ref,Value:String(item.volume)});
     vmixFire('AudioBusOn',{Input:ref,Value:'A'});vmixFire('AudioOn',{Input:ref});vmixFire('Play',{Input:ref});
-    setTimeout(()=>{if(state.plRunning)playPlaylistItem(idx+1);},10000);
   }
+  state._plAdvanceTimer=setTimeout(()=>{state._plAdvanceTimer=null;if(state.plRunning)playPlaylistItem(idx+1);},10000);
 }
 function playlistNext(){if(!state.plRunning)return;playPlaylistItem(state.plIndex+1);}
 function playlistStop(){
-  // If an audio-only track is live on Bus A, stop its sound too (PGM was never changed).
-  const cur=state.plIndex>=0?state.playlist[state.plIndex]:null;
-  if(cur){
-    const ref=inputRef(cur.name);
-    if(state.plAudioOnly){ vmixFire('AudioBusOff',{Input:ref,Value:'A'}); }
-    vmixFire('Pause',{Input:ref});
-  }
+  if(state._plAdvanceTimer){ clearTimeout(state._plAdvanceTimer); state._plAdvanceTimer=null; }
+  resetPlaylistItemPlayback(state._plCurrentItem);
+  state._plCurrentItem=null;
   state.plRunning=false;state.plIndex=-1;
   document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">play_arrow</span> <span class="pl-btn-txt">Play</span>';
   renderPlaylist();document.getElementById('nowPlayingSection').style.display='none';
@@ -2511,6 +2525,7 @@ function parseVmixXML(xmlText){
   try{
     const doc=new DOMParser().parseFromString(xmlText,'text/xml');
     const inputs=doc.querySelectorAll('input');
+    const prevActiveNum=state.vmixActive;
     const activeNum=doc.querySelector('active')?.textContent;
     const previewNum=doc.querySelector('preview')?.textContent;
     // FTB state — sync จาก vMix จริง (ทุกเครื่องเห็นตรงกัน)
@@ -2518,6 +2533,12 @@ function parseVmixXML(xmlText){
     if(ftbNode){
       const on = ftbNode.textContent.trim()==='True';
       if(on!==state.ftbActive){ state.ftbActive=on; updateFTBButton(); }
+    }
+    // Main (Master bus) volume — sync จาก vMix จริง เพื่อให้ slider ตรงเสมอ
+    const masterNode=doc.querySelector('audio > master')||doc.querySelector('master');
+    if(masterNode){
+      const mv=parseFloat(masterNode.getAttribute('volume'));
+      if(!isNaN(mv)) state.mainVolume=mv;
     }
     if(!inputs.length){
       state.vmixInputs=[]; renderVicGrid(); updateReadinessCheck();
@@ -2601,9 +2622,32 @@ function parseVmixXML(xmlText){
       if(inputState==='Running') state.inputPlaying[title]=true;
       else if(inputState==='Paused'||inputState==='Completed') state.inputPlaying[title]=false;
     });
+
+    // ── PLAYLIST: PGM changed to something else outside the playlist itself ──
+    // (operator cut/faded manually elsewhere) → stop the playlist immediately
+    // and rewind the interrupted item, instead of leaving it running under a
+    // different live Source (that's how two Sources end up making sound at once).
+    if(state.plRunning && prevActiveNum!==null && activeNum!==prevActiveNum){
+      const cur=state._plCurrentItem;
+      const curNum=cur ? (state.vmixInputs.find(i=>i.title===cur.name)||{}).num : undefined;
+      // A 'video' item is expected to land on PGM itself (via its own Fade) —
+      // only flag it as external if PGM isn't that item. Audio-only/background
+      // items never touch PGM, so ANY PGM change while they're live is external.
+      const expectedNum = (cur && cur.type==='video') ? curNum : prevActiveNum;
+      if(activeNum!==expectedNum){
+        if(state._plAdvanceTimer){ clearTimeout(state._plAdvanceTimer); state._plAdvanceTimer=null; }
+        resetPlaylistItemPlayback(cur);
+        state._plCurrentItem=null; state.plRunning=false; state.plIndex=-1;
+        document.getElementById('plPlayBtn').innerHTML='<span class="msr sm" style="vertical-align:-3px;">play_arrow</span> <span class="pl-btn-txt">Play</span>';
+        renderPlaylist(); document.getElementById('nowPlayingSection').style.display='none';
+        addLog('info','PGM ถูกเปลี่ยนโดยไม่ผ่าน Playlist — หยุด Playlist อัตโนมัติ');
+        showToast('PGM เปลี่ยน — Playlist หยุดอัตโนมัติ','info');
+      }
+    }
+
     // Re-render input control cards
     renderVicGrid();
-    updateTransportModel();   // อัปเดต transport bar ของ PGM (เวลา/seek/volume)
+    updateTransportModel();   // อัปเดต transport bar ของ PGM (เวลา/seek) + Main volume
     updateReadinessCheck();
     // Log เฉพาะตอนจำนวน input เปลี่ยน ไม่ log ทุก poll
     if(state.vmixInputs.length !== (state._lastInputCount||0)){
@@ -2664,6 +2708,10 @@ function applyConfig(cfg){
     // Timing
     set('countdownDuration',cfg.countdownDuration); set('goalDuration',cfg.goalDuration);
     updateTeamDisplay(); updatePreview(); updateSBPreview();
+    // Values set programmatically above (e.g. a logo dropped on the desktop
+    // app) never fire oninput, so scheduleVmixSync() never gets called by
+    // the usual field handlers — push explicitly whenever config is (re)loaded.
+    scheduleVmixSync();
   }finally{ _applyingConfig=false; }
 }
 
@@ -2703,8 +2751,8 @@ function fadePvwToPgm(){
 }
 
 // ═══════════════════════════════════════════════
-// TRANSPORT BAR — เวลา/seek/volume ของ input ที่อยู่ PGM
-// แสดงเฉพาะเมื่อ PGM เป็นไฟล์วิดีโอ/เสียง (มี duration)
+// TRANSPORT BAR — เวลา/seek ของ input ที่อยู่ PGM (แสดงเฉพาะเมื่อ PGM เป็นไฟล์วิดีโอ/เสียงที่มี duration)
+// วอลุ่มด้านบน (vicVolumeRow) คุม Main/Master bus แยกต่างหาก ไม่ผูกกับ PGM อีกต่อไป
 // vMix ส่ง position/duration เป็น ms มากับ XML ทุก poll
 // ระหว่าง poll ใช้ ticker ในเครื่องเดินเลขต่อให้ลื่น
 // ═══════════════════════════════════════════════
@@ -2726,10 +2774,20 @@ function updateTransportModel(){
   const volEl=document.getElementById('vicVolumeRow');
   if(!tpEl||!volEl||!slEl) return;
 
+  // Main (Master bus) volume — always relevant regardless of what's on PGM,
+  // so it's shown/synced unconditionally (unlike the PGM-specific transport bar below).
+  volEl.style.display='';
+  if(!_tpVolDragging && !isNaN(state.mainVolume)){
+    const s=document.getElementById('vicVolSlider');
+    const v=Math.round(state.mainVolume);
+    s.value=v; document.getElementById('vicVolVal').textContent=v;
+    updateVolIcon(v);
+  }
+
   if(isSlidesInput(pgm)){
     // ── โหมด SLIDESHOW (Photos / PowerPoint / Image Sequence) ──
     state._tp=null;
-    tpEl.style.display='none'; volEl.style.display='none';   // สไลด์ไม่มีเสียง → ซ่อนแถวเสียง
+    tpEl.style.display='none';
     const count=pgm.itemCount||0;
     // selectedIndex จาก XML น่าจะ 0-based → แสดง 1-based (ยืนยันกับของจริงที่สนาม)
     let idx=isNaN(pgm.selectedIndex)?1:pgm.selectedIndex+1;
@@ -2744,20 +2802,13 @@ function updateTransportModel(){
 
   if(!isMediaInput(pgm)){
     state._tp=null;
-    tpEl.style.display='none'; volEl.style.display='none';
+    tpEl.style.display='none';
     return;
   }
   state._tp={ title:pgm.title, key:pgm.key,
               pos:pgm.position, dur:pgm.duration,
               running:pgm.state==='Running', syncAt:Date.now() };
-  tpEl.style.display=''; volEl.style.display='';
-  // volume จาก vMix (ไม่ทับตอนกำลังลากอยู่)
-  if(!_tpVolDragging && !isNaN(pgm.volume)){
-    const s=document.getElementById('vicVolSlider');
-    const v=Math.round(pgm.volume);
-    s.value=v; document.getElementById('vicVolVal').textContent=v;
-    updateVolIcon(v);
-  }
+  tpEl.style.display='';
   tpRender();
 }
 
@@ -2915,8 +2966,8 @@ function volSliderInput(el){
   if(_volSendTimer) return;
   _volSendTimer=setTimeout(()=>{
     _volSendTimer=null;
-    const tp=state._tp; if(!tp) return;
-    vmixFire('SetVolume',{Input:inputRef(tp.title),Value:String(document.getElementById('vicVolSlider').value)});
+    state.mainVolume=parseInt(document.getElementById('vicVolSlider').value)||0;
+    vmixFire('SetVolume',{Input:'Master',Value:String(state.mainVolume)});
   },120);
   clearTimeout(state._volDragEnd);
   state._volDragEnd=setTimeout(()=>{_tpVolDragging=false;},600);
