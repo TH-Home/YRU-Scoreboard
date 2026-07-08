@@ -2535,10 +2535,13 @@ function parseVmixXML(xmlText){
       if(on!==state.ftbActive){ state.ftbActive=on; updateFTBButton(); }
     }
     // Main (Master bus) volume — sync จาก vMix จริง เพื่อให้ slider ตรงเสมอ
+    // vMix รายงาน volume ผ่าน audio-taper curve (volume = 100*(pos/100)^4, ยืนยันจาก
+    // API จริง: Value=75 → volume="31.64063") ต้องแปลงกลับ (inverse) ให้เป็นตำแหน่ง
+    // fader 0-100 ก่อน ไม่งั้น slider จะโดดไปไม่ตรงตำแหน่งที่ผู้ใช้ลากไว้
     const masterNode=doc.querySelector('audio > master')||doc.querySelector('master');
     if(masterNode){
       const mv=parseFloat(masterNode.getAttribute('volume'));
-      if(!isNaN(mv)) state.mainVolume=mv;
+      if(!isNaN(mv)) state.mainVolume=100*Math.pow(mv/100, 1/4);
     }
     if(!inputs.length){
       state.vmixInputs=[]; renderVicGrid(); updateReadinessCheck();
@@ -2962,12 +2965,13 @@ function volSliderInput(el){
   const v=parseInt(el.value)||0;
   document.getElementById('vicVolVal').textContent=v;
   updateVolIcon(v);
-  // throttle การยิง SetVolume ระหว่างลาก (~ทุก 120ms) กัน request ท่วม
+  // throttle การยิง SetMasterVolume ระหว่างลาก (~ทุก 120ms) กัน request ท่วม
+  // (SetVolume&Input=Master ยืนยันแล้วว่าใช้ไม่ได้กับของจริง — ต้องเป็น SetMasterVolume)
   if(_volSendTimer) return;
   _volSendTimer=setTimeout(()=>{
     _volSendTimer=null;
     state.mainVolume=parseInt(document.getElementById('vicVolSlider').value)||0;
-    vmixFire('SetVolume',{Input:'Master',Value:String(state.mainVolume)});
+    vmixFire('SetMasterVolume',{Value:String(state.mainVolume)});
   },120);
   clearTimeout(state._volDragEnd);
   state._volDragEnd=setTimeout(()=>{_tpVolDragging=false;},600);
