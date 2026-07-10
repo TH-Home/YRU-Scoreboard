@@ -404,7 +404,6 @@ select.field-input{cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%238a9bc8'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;appearance:none;-webkit-appearance:none;}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.field-row-3{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:6px;}
 .color-row{display:flex;align-items:center;gap:8px;}
 .color-row .field-input{flex:1;}
 .color-swatch-btn{width:38px;height:38px;flex-shrink:0;border-radius:var(--radius-sm);border:2px solid var(--glass-border);cursor:pointer;padding:0;overflow:hidden;}
@@ -1227,6 +1226,7 @@ const state = {
   _fetchAbort:null,     // AbortController for the in-flight XML fetch (debounce)
   _scoreEditedAt:0,     // timestamp of last local score tap (grace period before poll overwrites)
   _lastGridSig:'',      // signature of last VIC grid structure (skip rebuild if unchanged)
+  _vmixQueue:null,      // serial promise chain so rapid taps (e.g. Score +/-) reach vMix in order
 };
 
 // Build/refresh the cached base URL. Call once at init and whenever IP/port changes.
@@ -1841,7 +1841,6 @@ async function applyResumedClock(secs, period, homeScore, awayScore){
 }
 
 function getSBInput(){return state.titleType==='logo'?'SB-LOGO.gtzip':'SB-TileName.gtzip';}
-function getPAInput(){return state.titleType==='logo'?'PA-LOGO.gtzip':'PA-TileName.gtzip';}
 
 // Base path คงที่ — โปรแกรม vMixController เก็บโลโก้ไว้ที่ C:\vMixData\logos เสมอ
 const LOGO_BASE = 'C:\\vMixData\\logos';
@@ -2482,7 +2481,12 @@ function vmixFire(func, params={}){
   let url=`${base}/api/?Function=${encodeURIComponent(func)}`;
   for(const[k,v]of Object.entries(params)){if(v!==undefined&&v!=='')url+=`&${k}=${encodeURIComponent(v)}`;}
   addLog('info',`→ ${func}${params.Input?' ['+params.Input+']':''}${params.Value?' ='+params.Value:''}`);
-  fetch(url,{mode:'no-cors',method:'GET',keepalive:true}).catch(()=>{setConnected(false);});
+  // Chain onto the previous call instead of firing in parallel — concurrent
+  // fire-and-forget fetches can reach vMix out of order (e.g. rapid Score +/-
+  // taps), leaving it displaying a stale intermediate value.
+  state._vmixQueue = (state._vmixQueue||Promise.resolve())
+    .then(()=>fetch(url,{mode:'no-cors',method:'GET',keepalive:true}))
+    .catch(()=>{setConnected(false);});
 }
 
 async function vmixApi(func,params={}){
@@ -2596,8 +2600,11 @@ function parseVmixXML(xmlText){
         return t===sbName || t===sbBase;
       });
       if (sbInp){
+        // vMix's XML reports these fields as "Score-Home.Text"/"Score-Away.Text"
+        // (confirmed against a live /api/ dump) — try that first, bare name as fallback.
         const readN=(nm)=>{
-          const n=sbInp.querySelector(`text[name="${nm}"]`)||sbInp.querySelector(`[name="${nm}"]`);
+          const n=sbInp.querySelector(`text[name="${nm}.Text"]`)||sbInp.querySelector(`[name="${nm}.Text"]`)
+                ||sbInp.querySelector(`text[name="${nm}"]`)||sbInp.querySelector(`[name="${nm}"]`);
           if(!n) return null;
           const v=parseInt((n.textContent||'').trim());
           return isNaN(v)?null:v;
