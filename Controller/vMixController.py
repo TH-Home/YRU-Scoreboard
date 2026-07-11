@@ -38,6 +38,7 @@ import socket
 import subprocess
 import sys
 import threading
+import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote
@@ -70,7 +71,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.11.1"
+APP_VERSION = "4.12.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -106,6 +107,12 @@ DEFAULT_CONFIG = {
     # Timing
     "countdownDuration": 7000,    # Countdown Mode only; match clock starts at (dur - 1750ms)
     "goalDuration": 13000,
+    # Live score — authoritative here, NOT scraped back out of vMix's GT-title
+    # XML (that had a field-naming mismatch bug and no cross-device story).
+    # The web app still pushes score to vMix for the on-air graphic; this is
+    # just the shared value every connected device reads back to stay in sync.
+    "homeScore": 0,
+    "awayScore": 0,
 }
 
 DAYS   = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -344,6 +351,27 @@ MATCHLOG = MatchLog()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# SESSION (single active controller — last device to claim wins, in-memory only)
+# ═════════════════════════════════════════════════════════════════════════════
+class SessionStore:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.active_id = None
+
+    def claim(self):
+        with self._lock:
+            self.active_id = uuid.uuid4().hex
+            return self.active_id
+
+    def current(self):
+        with self._lock:
+            return self.active_id
+
+
+SESSION = SessionStore()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # HTTP SERVER
 # ═════════════════════════════════════════════════════════════════════════════
 class Handler(BaseHTTPRequestHandler):
@@ -382,7 +410,7 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             self._send_file(INDEX_PATH, "text/html; charset=utf-8")
         elif path == "/config":
-            payload = dict(CONFIG.get(), appVersion=APP_VERSION)
+            payload = dict(CONFIG.get(), appVersion=APP_VERSION, activeSessionId=SESSION.current())
             self._send(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         elif path == "/matchlog/resume":
             self._send(200, json.dumps(MATCHLOG.last_clock_state(), ensure_ascii=False).encode("utf-8"))
@@ -399,7 +427,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = unquote(self.path.split("?")[0])
-        if path == "/config":
+        if path == "/session/claim":
+            new_id = SESSION.claim()
+            self._send(200, json.dumps({"sessionId": new_id}).encode("utf-8"))
+        elif path == "/config":
             try:
                 n = int(self.headers.get("Content-Length", "0"))
                 patch = json.loads(self.rfile.read(n).decode("utf-8"))
