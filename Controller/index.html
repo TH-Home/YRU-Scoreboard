@@ -564,12 +564,17 @@ select.field-input{cursor:pointer;
 
 /* vMIX INPUT CONTROL CARDS */
 .vmix-input-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;}
-.vmix-input-card{background:#000;border:1px solid var(--glass-border);border-radius:var(--radius-lg);
+.vmix-input-card{position:relative;background:#000;border:1px solid var(--glass-border);border-radius:var(--radius-lg);
   overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;}
 .vmix-input-card.is-pgm{border-color:rgba(255,61,61,0.55);box-shadow:0 0 14px rgba(255,61,61,0.18);}
 .vmix-input-card.is-pvw{border-color:rgba(0,230,118,0.45);box-shadow:0 0 12px rgba(0,230,118,0.12);}
 /* row 1: num + type + status badge */
-.vic-meta-row{display:flex;align-items:center;gap:6px;padding:9px 10px 4px;min-width:0;}
+/* PGM/PVW badge is PINNED to the card's top-right corner (absolute) so it
+   always sits at exactly one spot — end of the first line — no matter how
+   crowded the meta row gets on a phone (duration + PLAYING used to push it
+   off-row/off-screen). The row reserves right padding so nothing underlaps. */
+.vic-meta-row{display:flex;align-items:center;gap:6px;padding:9px 64px 4px 10px;min-width:0;flex-wrap:wrap;}
+.vic-status-badge.pgm,.vic-status-badge.pvw{position:absolute;top:8px;right:8px;}
 .vic-num{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;}
 .vic-type-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;flex-shrink:0;
   background:rgba(255,255,255,0.06);color:var(--text-muted);border:1px solid rgba(255,255,255,0.08);}
@@ -583,7 +588,7 @@ select.field-input{cursor:pointer;
 .vic-status-badge.playing{background:rgba(0,230,118,0.15);color:var(--accent-green);border:1px solid rgba(0,230,118,0.35);}
 /* row 2: title + playlist btn */
 .vic-title-row{display:flex;align-items:center;gap:6px;padding:0 10px 8px;min-width:0;}
-.vic-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+.vic-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;cursor:pointer;}
 .vic-addpl-btn{flex-shrink:0;display:flex;align-items:center;gap:3px;
   padding:3px 7px;border-radius:var(--radius-sm);border:1px solid rgba(0,230,118,0.3);
   background:transparent;color:var(--accent-green);font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;
@@ -799,7 +804,7 @@ select.field-input{cursor:pointer;
     <div class="card-header vic-card-header">
       <div class="card-header-icon vic-card-icon" style="background:rgba(59,158,255,0.1);"><span class="msr sm" style="color:var(--accent-blue);">cast</span></div>
       <div class="card-header-title vic-card-title">vMix Inputs</div>
-      <div class="vic-volume-row" id="vicVolumeRow" style="display:none;" title="Main (Master) Volume">
+      <div class="vic-volume-row" id="vicVolumeRow" style="display:none;" title="Output Master Volume">
         <span class="msr sm" id="vicVolIcon" style="color:var(--accent-cyan);">volume_up</span>
         <input type="range" class="tp-range vol-range" id="vicVolSlider" min="0" max="100" value="100"
                oninput="volSliderInput(this)">
@@ -1580,7 +1585,7 @@ function renderVicGrid(){
         ${statusBadge}
       </div>
       <div class="vic-title-row">
-        <span class="vic-title">${inp.title}</span>
+        <span class="vic-title" onclick="vicPreview('${inp.title}')" title="แตะเพื่อส่งขึ้น PVW">${inp.title}</span>
         ${addPlBtn}
       </div>
       <div class="vic-controls">
@@ -1622,17 +1627,18 @@ function updateVicCard(inp){
 
   card.className = isPgm ? 'vmix-input-card is-pgm' : isPvw ? 'vmix-input-card is-pvw' : 'vmix-input-card';
 
-  // status badge (PGM/PVW/none)
+  // status badge (PGM/PVW/none) — select the pgm/pvw badges SPECIFICALLY:
+  // a bare '.vic-status-badge' also matched the PLAYING badge, so an in-place
+  // update could replace PLAYING with PGM while the stale PVW badge survived,
+  // leaving two corner-pinned badges stacked on top of each other.
   const meta=card.querySelector('.vic-meta-row');
   if(meta){
-    let badge=meta.querySelector('.vic-status-badge');
-    const want = isPgm?'pgm':isPvw?'pvw':'';
-    if(!want){ if(badge) badge.remove(); }
-    else{
+    meta.querySelectorAll('.vic-status-badge.pgm,.vic-status-badge.pvw').forEach(b=>b.remove());
+    if(isPgm || isPvw){
       const html = isPgm
         ? `<span class="vic-status-badge pgm"><span class="msr sm" style="font-size:8px;">fiber_manual_record</span>PGM</span>`
         : `<span class="vic-status-badge pvw"><span class="msr sm" style="font-size:8px;">preview</span>PVW</span>`;
-      if(badge) badge.outerHTML=html; else meta.insertAdjacentHTML('beforeend',html);
+      meta.insertAdjacentHTML('beforeend',html);
     }
   }
 
@@ -1670,6 +1676,14 @@ function vicAddToPlaylist(title){
   state.playlist.push({id:Date.now()+Math.random(),name:title,type:'video',volume:100,playing:false,fromVmix:true});
   renderPlaylist();
   showToast('+PL: '+title,'success');
+}
+
+// 0. Preview — แตะชื่อ input ในการ์ดเพื่อส่งขึ้น PVW (พฤติกรรมเดียวกับ
+//    การคลิก input ในหน้าจอ vMix เอง) — ไม่กระทบ PGM/ออกอากาศ
+function vicPreview(title){
+  vmixFire('PreviewInput',{Input:inputRef(title)});
+  showToast('PVW → '+title,'info');
+  scheduleStateRefresh(400);   // ป้าย PVW ย้ายการ์ดให้เห็นไวๆ
 }
 
 // 1. Overlay — ซ้อนภาพบน PGM โดยไม่เปลี่ยน main output
@@ -2555,10 +2569,9 @@ function parseVmixXML(xmlText){
       const on = ftbNode.textContent.trim()==='True';
       if(on!==state.ftbActive){ state.ftbActive=on; updateFTBButton(); }
     }
-    // Main (Master bus) volume — sync จาก vMix จริง เพื่อให้ slider ตรงเสมอ
-    // vMix รายงาน volume ผ่าน audio-taper curve (volume = 100*(pos/100)^4, ยืนยันจาก
-    // API จริง: Value=75 → volume="31.64063") ต้องแปลงกลับ (inverse) ให้เป็นตำแหน่ง
-    // fader 0-100 ก่อน ไม่งั้น slider จะโดดไปไม่ตรงตำแหน่งที่ผู้ใช้ลากไว้
+    // Output Master volume — sync จาก vMix จริง เพื่อให้ slider ตรงเสมอ
+    // vMix เก็บเป็น amplitude ผ่าน taper curve (amplitude = (fader/100)^4)
+    // ต้องแปลงกลับเป็นตำแหน่ง fader ก่อน ไม่งั้น slider เด้งไม่ตรงที่ลากไว้
     const masterNode=doc.querySelector('audio > master')||doc.querySelector('master');
     if(masterNode){
       const mv=parseFloat(masterNode.getAttribute('volume'));
@@ -2992,18 +3005,36 @@ function updateVolIcon(v){
   if(ic) ic.textContent = v===0?'volume_off' : v<50?'volume_down' : 'volume_up';
 }
 let _volSendTimer=null;
+function sendOutputVolume(v){
+  // Use vMix's OWN audio-taper curve (send the slider value raw): amplitude =
+  // (v/100)^4, i.e. slider 50 = -12 dB. Field-tested with the operator's ears:
+  // perceived "half loudness" sits at -10..-12 dB (psychoacoustics), which the
+  // taper puts exactly at mid-slider. A linear-amplitude mapping was tried and
+  // rejected - half-slider sounded barely quieter (-6 dB), and everything
+  // audible was crammed into the bottom quarter of the track.
+  const api = Math.round(Math.max(0,Math.min(100,v)));
+  // Drive EVERY audio path out of vMix in lockstep — Master bus, Bus A, and
+  // the Headphones output (a separate vMix output with its own volume that
+  // the Master fader does NOT control; verified live that the room speakers
+  // can be wired to it). Whichever device carries the sound, it follows.
+  vmixFire('SetMasterVolume',{Value:String(api)});
+  vmixFire('SetBusAVolume',{Value:String(api)});
+  vmixFire('SetHeadphonesVolume',{Value:String(api)});
+}
 function volSliderInput(el){
   _tpVolDragging=true;
   const v=parseInt(el.value)||0;
   document.getElementById('vicVolVal').textContent=v;
   updateVolIcon(v);
-  // throttle การยิง SetMasterVolume ระหว่างลาก (~ทุก 120ms) กัน request ท่วม
-  // (SetVolume&Input=Master ยืนยันแล้วว่าใช้ไม่ได้กับของจริง — ต้องเป็น SetMasterVolume)
+  state.mainVolume=v;
+  // throttle ระหว่างลาก (~ทุก 120ms) กัน request ท่วม; ตัวจับเวลาอ่านค่า "ล่าสุด"
+  // ตอนยิงเสมอ เลยการันตีว่าค่าสุดท้ายตอนปล่อยนิ้วถูกส่งแน่นอน
   if(_volSendTimer) return;
   _volSendTimer=setTimeout(()=>{
     _volSendTimer=null;
-    state.mainVolume=parseInt(document.getElementById('vicVolSlider').value)||0;
-    vmixFire('SetMasterVolume',{Value:String(state.mainVolume)});
+    const cur=parseInt(document.getElementById('vicVolSlider').value)||0;
+    state.mainVolume=cur;
+    sendOutputVolume(cur);
   },120);
   clearTimeout(state._volDragEnd);
   state._volDragEnd=setTimeout(()=>{_tpVolDragging=false;},600);
