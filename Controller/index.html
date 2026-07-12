@@ -58,6 +58,14 @@ body{font-family:'Prompt',sans-serif;background:var(--bg-void);color:var(--text-
 .header-text{min-width:0;overflow:hidden;}
 .header-title{font-size:13px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .header-sub{font-size:10px;color:var(--text-secondary);font-family:var(--font-mono);font-weight:400;}
+/* Portrait phone: header shows just logo + version chip (the full title eats
+   the space the mode/status badges need) */
+.header-ver-compact{display:none;font-family:var(--font-mono);font-size:12px;font-weight:700;
+  color:var(--accent-cyan);letter-spacing:0.5px;white-space:nowrap;}
+@media (max-width:600px) and (orientation:portrait){
+  .header-text{display:none;}
+  .header-ver-compact{display:inline;}
+}
 .header-controls{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;flex-shrink:0;}
 .ftb-btn{display:flex;align-items:center;gap:3px;padding:4px 8px;border-radius:12px;
   border:1px solid rgba(255,61,61,0.45);background:rgba(255,61,61,0.06);color:var(--accent-red);
@@ -697,6 +705,7 @@ select.field-input{cursor:pointer;
 <header class="app-header">
   <div class="header-logo">
     <div class="header-logo-icon"><span class="msr fill" style="color:#fff;">sports_soccer</span></div>
+    <span class="header-ver-compact" id="headerVersionCompact"></span>
     <div class="header-text">
       <div class="header-title">YRU Scoreboard <span class="header-sub" id="headerVersion">— vMix Controller</span></div>
     </div>
@@ -809,7 +818,7 @@ select.field-input{cursor:pointer;
           <span class="vic-pgm-label">PGM</span>
         </div>
       </div>
-      <button class="icon-btn vic-refresh" onclick="fetchVmixState(true)" title="อ่านสถานะจาก vMix ทันที ไม่รอรอบ 10 วิ"><span class="msr sm">refresh</span></button>
+      <button class="icon-btn vic-refresh" onclick="fetchVmixState()" title="อ่านสถานะจาก vMix ทันที ไม่รอรอบ 10 วิ"><span class="msr sm">refresh</span></button>
     </div>
     <!-- Transport — เวลา/seek ของ PGM (เฉพาะไฟล์วิดีโอ/เสียง) -->
     <div class="vic-transport" id="vicTransport" style="display:none;">
@@ -1227,7 +1236,7 @@ const state = {
   connected:false, reconnectTimer:null, reconnectAttempts:0, manualDisconnect:false,
   titleType:'logo', matchMode:'thai',
   periodCount:2, periodMins:45, clockMode:'continuous',
-  currentPeriod:1, clockSeconds:0, clockRunning:false, clockTimer:null,
+  currentPeriod:1, clockSeconds:0, clockRunning:false,
   homeScore:0, awayScore:0,
   homeName:'HOME', awayName:'AWAY',
   homeColor:'#1a3a6b', awayColor:'#8b0000',
@@ -1249,7 +1258,8 @@ const state = {
   _vmixQueue:null,      // serial promise chain so rapid taps (e.g. Score +/-) reach vMix in order
   mySessionId:null,     // this tab's claimed session id (see claimSession())
   sessionActive:true,   // false once another device claims control instead
-  _clockAnchorWallClock:null,   // Date.now() at the last time clockSeconds was (re)anchored while running
+  _clockSyncAt:null,    // Date.now() at the last /clock state sync (display extrapolation)
+  _lastShownSecs:null,  // last second rendered on screen (monotonic display guard)
 };
 
 // Build/refresh the cached base URL. Call once at init and whenever IP/port changes.
@@ -1338,13 +1348,10 @@ function rebuildPeriodSwitcher() {
 }
 
 async function selectPeriod(p) {
-  state.currentPeriod = p;
-  const labels = ['1ST PERIOD','2ND PERIOD','3RD PERIOD','4TH PERIOD'];
-  document.getElementById('halfLabel').textContent = labels[p-1];
-  document.getElementById('sbPeriodLabel').textContent = ['1ST','2ND','3RD','4TH'][p-1];
-  document.querySelectorAll('.period-btn').forEach((b,i)=>b.classList.toggle('active',i+1===p));
-  updateStartMatchLabel();
-  if (!state.clockRunning) await clockReset();
+  // Server owns period + clock (it resets the time when not running, same
+  // rule as before); applyClockState() inside clockCmd refreshes all the
+  // period UI (labels, switcher buttons, Start Match label).
+  await clockCmd('period',{period:p});
 }
 
 function updateStartMatchLabel(){
@@ -1355,12 +1362,14 @@ function updateStartMatchLabel(){
 }
 
 // ═══════════════════════════════
-// CLOCK — driven by vMix's own built-in Countdown timer (GT Title Designer
-// "Countdown" object set to Reverse/count-up mode, target field Time.Text).
-// vMix counts entirely on its own once started — it does NOT depend on the
-// phone/browser staying open. The setInterval below only refreshes the
-// LOCAL display in this app for the operator's convenience; if it stops
-// (screen lock, tab closed) the scoreboard on vMix keeps counting fine.
+// CLOCK — REMOTE CONTROL (v5.0.0). The match clock lives INSIDE
+// vMixController (Python) on the vMix machine itself: it counts on a
+// monotonic clock, pushes Time.Text to vMix once per second over loopback,
+// auto-stops at each period's limit, and silently self-resumes after a
+// crash — all without any browser open. This app only (1) sends commands to
+// POST /clock and (2) mirrors GET /clock state for its own display. NO vMix
+// Countdown API calls remain anywhere in this file, so multi-device clock
+// write wars are structurally impossible.
 // ═══════════════════════════════
 function secsToHMS(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
@@ -1369,152 +1378,79 @@ function secsToHMS(totalSeconds) {
   return [h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
 }
 
-// Wall-clock-anchored, same pattern as the transport bar's tpNow() below --
-// derives the current elapsed time from real elapsed wall-clock time instead
-// of counting setInterval ticks, so mobile background/lock-screen throttling
-// (which makes setInterval fire late or get paused) can't cause the display
-// to drift away from real time and then visibly "jump" when corrected later.
+// Local display extrapolation between /clock polls — same pattern as the
+// transport bar's tpNow(): server seconds at last sync + real elapsed time.
 function getCurrentClockSeconds(){
-  if (state.clockRunning && state._clockAnchorWallClock){
+  if (state.clockRunning && state._clockSyncAt){
     const limit = getPeriodLimit(state.currentPeriod);
-    const live = state.clockSeconds + (Date.now()-state._clockAnchorWallClock)/1000;
+    const live = state.clockSeconds + (Date.now()-state._clockSyncAt)/1000;
     return Math.min(Math.floor(live), limit);
   }
   return state.clockSeconds;
 }
 
-// Starts (or restarts) the LOCAL display ticker only -- no vMix API calls.
-// Shared by clockStart() (after it has told vMix where/to-start) and by
-// checkResumeState()'s "vMix is already running fine" mirror path (which
-// must NEVER write to vMix, but still needs a live, self-updating display
-// and the period-end auto-clamp logic, or the flag ends up "running" with
-// nothing actually ticking -- freezing the display and permanently blocking
-// any later clockStart() call via its `if (state.clockRunning) return;` guard).
-// BOTH title types now drive vMix's NATIVE Countdown object (frame-accurate,
-// rendered inside vMix's own engine) and this ticker only refreshes the LOCAL
-// web-app display. Per-second SetText over HTTP was tried for TileName and
-// could never be made truly smooth -- even vMix UTC's own docs concede that
-// HTTP-pushed timers are less accurate than vMix's native ones. The original
-// TileName countdown glitch traced to a corrupt Countdown object in the old
-// .gtzip; the field was rebuilt cleanly (SB-TileName-NEW) with settings
-// copied from the proven-smooth SB-LOGO.
-function startLocalClockTicker(){
-  state.clockRunning = true;
-  updateClockUI();
-  state._clockAnchorWallClock = Date.now();
-  updateClockDisplay();
-  updateSBPreview();
-  // Self-scheduling tick aligned just past each true second boundary of the
-  // wall-clock anchor. A plain setInterval(1000) drifts, so the local digits
-  // occasionally skipped or double-stepped. clearInterval() is
-  // spec-interchangeable with clearTimeout(), so the existing
-  // clearInterval(state.clockTimer) calls in pause/reset still work.
-  const msToNextTick = () => {
-    const anchor = state._clockAnchorWallClock || Date.now();
-    return Math.max(50, 1000 - ((Date.now() - anchor) % 1000) + 20);
-  };
-  const tick = () => {
-    if (!state.clockRunning) return;   // paused/reset between ticks — stop rescheduling
-    const cur = getCurrentClockSeconds();
-    const lim = getPeriodLimit(state.currentPeriod);
-    if (cur >= lim) {
-      state.clockSeconds = lim; // clamp — ไม่ให้เกิน 45:00 เด็ดขาด
-      state._clockAnchorWallClock = null;
-      state.clockRunning = false;
-      // BUG FIXED: this used to only stop the LOCAL display -- vMix's own
-      // Countdown was never told to stop, so it kept counting silently past
-      // the period limit until the next clockReset()/clockStart() corrected
-      // it, which showed up as a visible jump backward right when the next
-      // period started.
-      // BUG FIXED (2): StopCountdown RESETS the on-air display to the full
-      // Duration — flashed "120:00" for an instant right before the pin
-      // landed (04:59 → 120:00 → 05:00). SuspendCountdown freezes the value
-      // IN PLACE instead (verified live against the API: 00:03 stayed 00:03),
-      // then ChangeCountdown pins it to the exact period-end time. The next
-      // period's clockStart always sets position explicitly, so leaving the
-      // countdown suspended (not stopped) is safe.
-      const sbEnd = getSBInput();
-      vmixFire('SuspendCountdown',{Input:sbEnd});
-      vmixFire('ChangeCountdown',{Input:sbEnd,Value:secsToHMS(lim)});
-      logClockEvent('pause', lim);   // period ended — matchlog must not keep saying "running", or every reload offers a bogus resume
-      document.getElementById('clockDisplay').className = 'clock-display stopped';
-      syncStartPauseButton();
-      updateClockDisplay();
-      updateSBPreview();
-      showToast(`Period ${state.currentPeriod} จบ!`,'info');
-      return; // หยุดทันที ไม่ทำงานต่อ
-    }
-    updateClockDisplay();
-    updateSBPreview();
-    state.clockTimer = setTimeout(tick, msToNextTick());
-  };
-  state.clockTimer = setTimeout(tick, msToNextTick());
-}
-
-async function clockStart(forceSetPosition) {
-  if (state.clockRunning) return;
-  const limit = getPeriodLimit(state.currentPeriod);
-  const start = getPeriodStart(state.currentPeriod);
-  if (state.clockSeconds >= limit) { showToast('Period นี้จบแล้ว','error'); return; }
-
-  // Countdown commands ส่งไปเฉพาะ SB file ที่เลือกอยู่ (ที่ตั้งค่า Countdown object ไว้ใน GT Designer)
-  // ห้ามส่งไปทั้ง 2 ไฟล์ เพราะไฟล์ที่ไม่มี Countdown object จะไปแก้ field อื่นแทน (เช่น Title-Match.Text)
-  const sb = getSBInput();
-  const resuming = state.clockSeconds > start;
-
-  // Native Countdown path for BOTH title types (the rebuilt SB-TileName-NEW
-  // carries a clean Countdown object copied from SB-LOGO's proven settings).
-  // forceSetPosition: used by applyResumedClock() after a crash/restart --
-  // vMix's own Countdown position can't be trusted then, so it must be
-  // explicitly set even though state.clockSeconds looks like "resuming".
-  // BUG FIXED: this used to always send `start` (the period's baseline,
-  // e.g. 00:00) to vMix even when resuming mid-period — the local app
-  // display showed the correct resumed time (patched separately below) but
-  // vMix's REAL on-air countdown silently reset to the period start and
-  // began counting up from there. When forcing position, send the actual
-  // resumed position (state.clockSeconds, already set by the caller) instead.
-  if (!resuming || forceSetPosition) {
-    const posSeconds = forceSetPosition ? state.clockSeconds : start;
-    await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(posSeconds)});
-    // Duration never needs to change between periods -- we clamp/stop at
-    // the right period limit ourselves. Changing vMix's own Duration on
-    // every period transition re-triggered render glitches, so it stays fixed.
-    await vmixApi('SetCountdown',{Input:sb,Value:'02:00:00'});
+// Mirror the server's clock state into local UI state. Called with every
+// /clock response (commands + the 4s poll) — the server is the only truth.
+function applyClockState(st){
+  if (!st || typeof st.seconds!=='number') return;
+  const wasRunning = state.clockRunning;
+  state.clockRunning = !!st.running;
+  state.clockSeconds = st.seconds;
+  state._clockSyncAt = Date.now();
+  if (st.period) state.currentPeriod = st.period;
+  // period UI (labels + switcher) — cheap, refresh unconditionally
+  const labels = ['1ST PERIOD','2ND PERIOD','3RD PERIOD','4TH PERIOD'];
+  const hl=document.getElementById('halfLabel');
+  if (hl) hl.textContent = labels[state.currentPeriod-1] || labels[0];
+  const sp=document.getElementById('sbPeriodLabel');
+  if (sp) sp.textContent = ['1ST','2ND','3RD','4TH'][state.currentPeriod-1] || '1ST';
+  document.querySelectorAll('.period-btn').forEach((b,i)=>b.classList.toggle('active',i+1===state.currentPeriod));
+  updateStartMatchLabel();
+  // clock display state classes
+  const disp=document.getElementById('clockDisplay');
+  if (disp){
+    const atLimit = state.clockSeconds >= getPeriodLimit(state.currentPeriod);
+    disp.className = state.clockRunning ? 'clock-display running'
+                   : (atLimit ? 'clock-display stopped' : 'clock-display paused');
   }
-  await vmixApi('StartCountdown',{Input:sb});
-  addLog('ok',`Clock started on ${sb} (${secsToHMS(start)} → ${secsToHMS(limit)})`);
-  logClockEvent(resuming?'resume':'start', state.clockSeconds);
-  startLocalClockTicker();
-}
-
-async function clockPause() {
-  if (!state.clockRunning) { clockStart(); return; }
-  state.clockSeconds = getCurrentClockSeconds();   // freeze the live wall-clock-derived value
-  state._clockAnchorWallClock = null;
-  state.clockRunning = false;
-  clearInterval(state.clockTimer);
-  document.getElementById('clockDisplay').className = 'clock-display paused';
   syncStartPauseButton();
-  await vmixApi('SuspendCountdown',{Input:getSBInput()});
-  addLog('info','Clock paused');
-  logClockEvent('pause', state.clockSeconds);
-  showToast('Paused','info');
-}
-
-async function clockReset() {
-  state.clockRunning = false;
-  state._clockAnchorWallClock = null;
-  clearInterval(state.clockTimer);
-  state.clockSeconds = getPeriodStart(state.currentPeriod);
   updateClockDisplay();
-  document.getElementById('clockDisplay').className = 'clock-display stopped';
-  syncStartPauseButton();
   updateSBPreview();
-  const sb = getSBInput();
-  await vmixApi('StopCountdown',{Input:sb});
-  await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(state.clockSeconds)});
-  addLog('info',`Clock reset to ${secsToHMS(state.clockSeconds)}`);
-  logClockEvent('reset', state.clockSeconds);
+  if (wasRunning && !state.clockRunning && state.clockSeconds >= getPeriodLimit(state.currentPeriod)){
+    showToast(`Period ${state.currentPeriod} จบ!`,'info');
+  }
+}
+
+// Send a clock command to the server and mirror the state it answers with.
+async function clockCmd(action, extra={}){
+  try{
+    const r = await fetch('/clock',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(Object.assign({action}, extra))});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    applyClockState(await r.json());
+    return true;
+  }catch(e){
+    showToast('สั่งนาฬิกาไม่สำเร็จ — เช็ค vMixController','error');
+    addLog('err','clock '+action+': '+e.message);
+    return false;
+  }
+}
+
+async function clockStart(){
+  if (state.clockRunning) return;
+  if (getCurrentClockSeconds() >= getPeriodLimit(state.currentPeriod)){
+    showToast('Period นี้จบแล้ว','error'); return;
+  }
+  if (await clockCmd('start')) addLog('ok','Clock started (server-side)');
+}
+
+async function clockPause(){
+  if (!state.clockRunning) { clockStart(); return; }
+  if (await clockCmd('pause')) showToast('Paused','info');
+}
+
+async function clockReset(){
+  if (await clockCmd('reset')) addLog('info',`Clock reset to ${secsToHMS(state.clockSeconds)}`);
 }
 
 // Manually set the clock -- only allowed while paused/stopped, so a running
@@ -1529,53 +1465,30 @@ async function editClockTime(){
   if (parts.length===2 && !isNaN(parts[0]) && !isNaN(parts[1])) secs = parts[0]*60+parts[1];
   else if (parts.length===1 && !isNaN(parts[0])) secs = parts[0];
   else { showToast('รูปแบบเวลาไม่ถูกต้อง (mm:ss)','error'); return; }
-  const limit = getPeriodLimit(state.currentPeriod);
-  secs = Math.max(0, Math.min(secs, limit));
-  state.clockSeconds = secs;
-  updateClockDisplay();
-  updateSBPreview();
-  const sb = getSBInput();
-  await vmixApi('ChangeCountdown',{Input:sb,Value:secsToHMS(secs)});
-  addLog('info',`ตั้งเวลานาฬิกาด้วยมือเป็น ${secsToHMS(secs)}`);
-  logClockEvent('reset', secs);   // re-anchor so crash-recovery reflects the manual edit too
-  showToast(`ตั้งเวลาเป็น ${secsToHMS(secs)}`,'success');
+  if (await clockCmd('set',{seconds:secs}))
+    showToast(`ตั้งเวลาเป็น ${secsToHMS(state.clockSeconds)}`,'success');
 }
 
-// Resync local display from vMix's actual current value (call after
-// reopening the app / waking the phone, so the operator sees the true time).
-function syncClockFromVmixText(timeStr) {
-  // timeStr expected as mm:ss or hh:mm:ss
-  const parts = timeStr.split(':').map(n=>parseInt(n)||0);
-  let secs = 0;
-  if (parts.length===3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
-  else if (parts.length===2) secs = parts[0]*60 + parts[1];
-  // SANITY GUARD: ignore readings beyond the longest possible match time.
-  // vMix's StopCountdown transiently resets the display to the full Duration
-  // ("120:00" = 7200s) — swallowing that once poisoned clockSeconds so badly
-  // that clockStart() permanently refused to run ("Period นี้จบแล้ว" at 7200
-  // ≥ limit). An on-air artifact must never become our clock state.
-  if (secs > getPeriodLimit(state.periodCount)) return;
-  state.clockSeconds = secs;
-  // re-anchor to now if running, else a forced resync would double-count
-  // elapsed time against the stale old anchor on the next tick
-  state._clockAnchorWallClock = state.clockRunning ? Date.now() : null;
-  updateClockDisplay();
-  updateSBPreview();
-}
+// Smooth local repaint between polls (display only — the real clock ticks on
+// the server): permanent half-second tick, same approach as tpTick below.
+setInterval(()=>{ if(state.clockRunning){ updateClockDisplay(); updateSBPreview(); } }, 500);
 
 function updateClockDisplay() {
-  const elapsed = getCurrentClockSeconds();
+  let elapsed = getCurrentClockSeconds();
+  // Display-only monotonic guard: a 4s /clock re-sync can correct the local
+  // extrapolation by ±1s, which must never make the digits step BACKWARD on
+  // screen. Hold the last shown value for corrections ≤2s; bigger changes
+  // (reset / manual edit / period switch) pass through untouched.
+  if (state.clockRunning && state._lastShownSecs!=null &&
+      elapsed < state._lastShownSecs && (state._lastShownSecs - elapsed) <= 2){
+    elapsed = state._lastShownSecs;
+  }
+  state._lastShownSecs = state.clockRunning ? elapsed : null;
   const m = Math.floor(elapsed / 60);
   const s = elapsed % 60;
   const str = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
   document.getElementById('clockDisplay').textContent = str;
   document.getElementById('sbClock').textContent = str;
-}
-
-function updateClockUI() {
-  document.getElementById('clockDisplay').className =
-    state.clockRunning ? 'clock-display running' : 'clock-display paused';
-  syncStartPauseButton();
 }
 
 function syncStartPauseButton() {
@@ -1893,7 +1806,7 @@ function adjustScore(team, delta) {
   // means the live title re-renders once per tap instead of twice.
   const field = team==='home' ? 'Score-Home.Text' : 'Score-Away.Text';
   const value = String(team==='home' ? state.homeScore : state.awayScore);
-  for(const inp of ['SB-LOGO.gtzip','SB-TileName.gtzip'].map(resolveInputTitle)){
+  for(const inp of ['SB-LOGO.gtzip','SB-TITLE.gtzip'].map(resolveInputTitle)){
     vmixFire('SetText',{Input:inp,SelectedName:field,Value:value});
   }
   pushScoreToServer();
@@ -1917,115 +1830,10 @@ function logMatchScore(){
     action:'score', homeScore:state.homeScore, awayScore:state.awayScore
   })}).catch(()=>{});
 }
-function logClockEvent(event, clockSeconds){
-  fetch('/matchlog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    action:'clockEvent', event, clockSeconds, period:state.currentPeriod,
-    wallClockAt:new Date().toISOString()
-  })}).catch(()=>{});
-}
-
-// ═══════════════════════════════
-// CLOCK RESUME — if the computer running vMix crashed/lost power mid-match,
-// vMix's own Countdown object has no memory of where it was. On page load,
-// check the last wall-clock-anchored checkpoint and offer to push the
-// correct elapsed time back into vMix (never applied silently — confirm first).
-// ═══════════════════════════════
-// Reads the SB input's Time.Text straight from vMix's own XML, WITHOUT ever
-// writing anything. Used by checkResumeState() to tell "vMix crashed and
-// needs to be told where to resume" apart from "vMix is still counting fine,
-// this is just a new device/tab joining in".
-// BUG FIXED: this used to trust the input's state="Running" attribute as
-// "the countdown is running" -- but that attribute reflects the TITLE'S
-// playback (it reads Running whenever the title is on air), not the clock.
-// After switching to Logo mode with SB-LOGO sitting on PGM, that misread
-// made the app mirror a FROZEN 00:00 as if it were live and never start
-// vMix's countdown at all. The only trustworthy running-signal is watching
-// the value actually advance: sample Time.Text twice, 1.2s apart.
-async function fetchVmixCountdownState(sbInputName){
-  const readSecs = async ()=>{
-    const base = state.baseUrl || refreshBaseUrl();
-    const resp = await fetch(`${base}/api/`, {mode:'cors'});
-    if(!resp.ok) return null;
-    const text = await resp.text();
-    const doc = new DOMParser().parseFromString(text, 'text/xml');
-    const sbBase = sbInputName.replace('.gtzip','');
-    const inp = Array.from(doc.querySelectorAll('input')).find(i=>{
-      const t=i.getAttribute('title')||''; return t===sbInputName||t===sbBase||t.startsWith(sbBase);   // prefix: matches rebuilt names like SB-TileName-NEW.gtzip
-    });
-    if(!inp) return null;
-    const timeNode = inp.querySelector('text[name="Time"]') || inp.querySelector('[name="Time"]')
-                   || inp.querySelector('text[name="Time.Text"]');
-    if(!timeNode || !timeNode.textContent.trim()) return null;
-    const parts = timeNode.textContent.trim().split(':').map(n=>parseInt(n)||0);
-    if(parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
-    if(parts.length===2) return parts[0]*60+parts[1];
-    return null;
-  };
-  try{
-    const s1 = await readSecs();
-    if(s1===null) return null;
-    await new Promise(res=>setTimeout(res, 1200));
-    const s2 = await readSecs();
-    if(s2===null) return null;
-    return {running: s2>s1, secs: s2};
-  }catch(e){ return null; }
-}
-async function checkResumeState(){
-  try{
-    const r = await fetch('/matchlog/resume');
-    if(!r.ok) return;
-    const s = await r.json();
-    if(!s || !s.running) return;
-
-    const live = await fetchVmixCountdownState(getSBInput());
-    const elapsed = s.clockSecondsAtAnchor + (Date.now() - new Date(s.anchorWallClock).getTime())/1000;
-    const computed = Math.max(0, Math.round(elapsed));
-    const mirror = (secs)=>{
-      state.currentPeriod = s.period;
-      state.homeScore = s.homeScore||0; state.awayScore = s.awayScore||0;
-      document.getElementById('sbHomeScore').textContent = state.homeScore;
-      document.getElementById('sbAwayScore').textContent = state.awayScore;
-      state.clockSeconds = Math.min(secs, getPeriodLimit(s.period));
-      startLocalClockTicker();   // display ticker; writes to vMix only when this device holds the session
-    };
-
-    if (live && live.secs!==null && live.running){
-      // vMix's Countdown value was PROVEN to be advancing (two samples) --
-      // this is just another device joining in, not a crash recovery. Mirror
-      // the display from vMix's live value; NEVER re-issue ChangeCountdown/
-      // StartCountdown here, since writing to an already-correctly-running
-      // Countdown is exactly what risked a real on-air glitch.
-      mirror(live.secs);
-      addLog('ok',`ซิงค์เวลาจาก vMix ที่กำลังเดินอยู่แล้ว (${secsToHMS(state.clockSeconds)}) — ไม่ได้แก้ไข vMix`);
-      return;
-    }
-
-    // Genuine gap (vMix restarted / text long frozen / unreachable) -- the
-    // on-air clock really is wrong and correcting it will visibly jump, so
-    // this path still asks the operator first.
-    confirmAction('resumeclock', {secs: computed, period:s.period, homeScore:s.homeScore||0, awayScore:s.awayScore||0});
-  }catch(e){ /* server not reachable yet — skip silently */ }
-}
-async function applyResumedClock(secs, period, homeScore, awayScore){
-  state.currentPeriod = period;
-  state.clockSeconds = Math.min(secs, getPeriodLimit(period));
-  state.homeScore = homeScore||0;
-  state.awayScore = awayScore||0;
-  document.getElementById('sbHomeScore').textContent = state.homeScore;
-  document.getElementById('sbAwayScore').textContent = state.awayScore;
-  for(const inp of ['SB-LOGO.gtzip','SB-TileName.gtzip'].map(resolveInputTitle)){
-    vmixFire('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)});
-    vmixFire('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)});
-  }
-  await clockStart(true);   // force explicit position set -- vMix's own position after a crash isn't trustworthy
-                                // (clockStart() itself already logs the resulting clockEvent)
-  addLog('ok',`Resumed Match Clock at ${secsToHMS(state.clockSeconds)}, score ${state.homeScore}-${state.awayScore}, after reopening`);
-  showToast('ตั้งเวลาและสกอร์ต่อให้ vMix แล้ว','success');
-}
 
 // Resolve a canonical title-file name to whatever is ACTUALLY loaded in vMix:
 // exact match first, then any input whose title starts with the same base --
-// so a rebuilt file like SB-TileName-NEW.gtzip is found without every
+// so a rebuilt file like SB-TITLE.gtzip is found without every
 // hardcoded reference in the app needing to change.
 function resolveInputTitle(wanted){
   const inputs = state.vmixInputs;
@@ -2035,7 +1843,7 @@ function resolveInputTitle(wanted){
   const alt = inputs.find(i=>(i.title||'').startsWith(base));
   return alt ? alt.title : wanted;
 }
-function getSBInput(){return resolveInputTitle(state.titleType==='logo'?'SB-LOGO.gtzip':'SB-TileName.gtzip');}
+function getSBInput(){return resolveInputTitle(state.titleType==='logo'?'SB-LOGO.gtzip':'SB-TITLE.gtzip');}
 
 // Base path คงที่ — โปรแกรม vMixController เก็บโลโก้ไว้ที่ C:\vMixData\logos เสมอ
 const LOGO_BASE = 'C:\\vMixData\\logos';
@@ -2132,12 +1940,6 @@ const confirmConfig = {
     body:'', // เติมข้อความตาม period ที่กดใน confirmAction
     yes:'เปลี่ยน Period',
   },
-  resumeclock: {
-    icon:'history',
-    title:'ตรวจพบเวลาที่ยังไม่ปิดไว้',
-    body:'', // เติมข้อความตามเวลาที่คำนวณได้ใน confirmAction
-    yes:'ตั้งเวลาต่อให้ vMix',
-  },
 };
 
 function confirmAction(action, arg) {
@@ -2155,10 +1957,6 @@ function confirmAction(action, arg) {
   if (action==='period') {
     const labels=['1ST','2ND','3RD','4TH'];
     body = `กำลังจะเปลี่ยนเป็น ${labels[arg-1]} PERIOD\n(ถ้านาฬิกาไม่ได้เดิน เวลาจะถูกตั้งไปจุดเริ่ม Period)\nยืนยันหรือไม่?`;
-  }
-  if (action==='resumeclock') {
-    const mm=String(Math.floor(arg.secs/60)).padStart(2,'0'), ss=String(arg.secs%60).padStart(2,'0');
-    body = `ตรวจพบว่า Match Clock กำลังเดินอยู่ก่อนโปรแกรมปิด (เช่น ไฟดับ)\nคำนวณแล้วควรอยู่ที่ ${mm}:${ss} (Period ${arg.period}) พร้อมสกอร์ ${arg.homeScore}-${arg.awayScore}\nต้องการตั้งเวลาและสกอร์นี้ให้ vMix และเดินต่อเลยหรือไม่?`;
   }
   document.getElementById('confirmBody').textContent = body;
   document.getElementById('confirmYesBtn').innerHTML = `<span class="msr sm" style="vertical-align:-3px;">check</span> ${cfg.yes}`;
@@ -2180,7 +1978,6 @@ function confirmProceed() {
   if (a==='clockpause') clockPause();
   if (a==='clockreset') clockReset();
   if (a==='period') selectPeriod(arg);
-  if (a==='resumeclock') applyResumedClock(arg.secs, arg.period, arg.homeScore, arg.awayScore);
 }
 
 // ═══════════════════════════════
@@ -2280,7 +2077,7 @@ async function startMatch() {
     pushScoreToVmix();
 
     // ── TIMING FIX FOR NATURAL-LOOKING TRANSITION ──
-    // The countdown starts (StartCountdown) at cdDur-PRESTART_MS (1750ms) — fixed,
+    // The server-side clock starts at cdDur-PRESTART_MS (1750ms) — fixed,
     // since that's what lines up with "Kick Off" appearing in Countdown.mp4.
     // It starts from a true 00:00 (no offset injected here).
     const SB_FADE_MS = 250;
@@ -2301,31 +2098,18 @@ async function startMatch() {
     }, fadeAt);
 
   } else {
-    // General Mode: ไม่เกี่ยวข้องกับ Countdown เลย — ไม่มี Countdown.mp4, ไม่ใช้ Countdown duration
-    // PA → Cut → SB instantly, same proven pattern as startPeriod() (period 2/3/4
-    // transitions) uses -- no prestart delay/offset trick needed.
-    // BUG FIXED: this used to wait GENERAL_PRESTART_MS (2000ms) before cutting to
-    // SB, plus artificially bump the local display +2s to hide the "00:00" flash
-    // once revealed. That delay is what read as "a stutter, doesn't cut to SB
-    // right away", and the +2s nudge (sent only to the local display, never to
-    // vMix) created a permanent gap from vMix's true value that showed up as a
-    // jump every time anything resynced (second device, wake, reconnect).
-    // Cutting instantly avoids both: vMix genuinely starts from 00:00 and the
-    // local display matches it exactly, no trick needed.
-    // BUG FIXED (again): Cut was still placed AFTER `await selectPeriod(1)` and
-    // `await clockStart()` -- each awaits its own sequential vMix API round
-    // trips (clockReset's Stop/ChangeCountdown, then clockStart's Change/Set/
-    // StartCountdown), so Cut still visibly waited on all of that before firing,
-    // which read as "a bit of lag" even with the setTimeout gone. Firing Cut
-    // FIRST (fire-and-forget, same as startPeriod() already does for period
-    // 2/3/4) makes it truly instant; the clock/score/data setup that follows
-    // lands moments later, same as it always has for period transitions.
-    vmixFire('Cut',{Input:sbInput});
-    addLog('ok',`Cut → ${sbInput} (instant)`);
+    // General Mode: no Countdown.mp4. ORDER MATTERS: push all data (names,
+    // colors, logos, score — ~26 SetText/SetColor/SetImage) and prime the
+    // clock while the PA screen is still covering the output, so every
+    // re-render those writes force happens OFF AIR — then Cut. Cutting first
+    // (the old order) slammed the burst into the LIVE title and the clock
+    // layer visibly stuttered from the very first second.
     showToast('Starting Match...','info');
-    sendAllToVmixSilent();
+    await sendAllToVmixSilent();
     pushScoreToVmix();
     await selectPeriod(1);
+    vmixFire('Cut',{Input:sbInput});
+    addLog('ok',`Cut → ${sbInput}`);
     await clockStart();
     showToast('Match Live!','success');
   }
@@ -2449,18 +2233,18 @@ async function syncAllToVmix(){
 // having every routine background sync also push score caused it to bounce
 // between devices' stale values and vMix's real one.
 function pushScoreToVmix(){
-  for(const inp of ['SB-LOGO.gtzip','SB-TileName.gtzip'].map(resolveInputTitle)){
+  for(const inp of ['SB-LOGO.gtzip','SB-TITLE.gtzip'].map(resolveInputTitle)){
     vmixFire('SetText',{Input:inp,SelectedName:'Score-Home.Text',Value:String(state.homeScore)});
     vmixFire('SetText',{Input:inp,SelectedName:'Score-Away.Text',Value:String(state.awayScore)});
   }
 }
 async function sendAllToVmixSilent(){
   const paLogo     = resolveInputTitle('PA-LOGO.gtzip');
-  const paTileName = resolveInputTitle('PA-TileName.gtzip');
+  const paTitle = resolveInputTitle('PA-TITLE.gtzip');
   const sbLogo     = resolveInputTitle('SB-LOGO.gtzip');
-  const sbTileName = resolveInputTitle('SB-TileName.gtzip');
-  const allPA  = [paLogo, paTileName];
-  const allFiles = [paLogo, paTileName, sbLogo, sbTileName];
+  const sbTitle = resolveInputTitle('SB-TITLE.gtzip');
+  const allPA  = [paLogo, paTitle];
+  const allFiles = [paLogo, paTitle, sbLogo, sbTitle];
 
   const cn  = document.getElementById('compName').value;
   const hn  = document.getElementById('homeName').value;
@@ -2477,7 +2261,7 @@ async function sendAllToVmixSilent(){
   addLog('info','Sync → ทุกไฟล์ gtzip...');
   const jobs=[];  // fire all field writes concurrently — they don't depend on each other
 
-  // ── PA-only fields → PA-LOGO + PA-TileName ──
+  // ── PA-only fields → PA-LOGO + PA-TITLE ──
   for(const inp of allPA){
     if(dow) jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Day.Text',Value:dow}));
     if(d)   jobs.push(vmixApi('SetText',{Input:inp,SelectedName:'Date.Text',Value:d}));
@@ -2711,7 +2495,7 @@ async function vmixApi(func,params={}){
   }catch(err){addLog('err',`Error: ${err.message}`);setConnected(false);return false;}
 }
 
-async function fetchVmixState(forceClockSync=false){
+async function fetchVmixState(){
   const base=state.baseUrl||refreshBaseUrl();
   // Cancel any in-flight fetch so rapid Cut/Fade taps don't stack requests
   if(state._fetchAbort) state._fetchAbort.abort();
@@ -2722,7 +2506,7 @@ async function fetchVmixState(forceClockSync=false){
     const resp=await fetch(`${base}/api/`,{mode:'cors',signal:ctrl.signal});
     if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
     const text=await resp.text();
-    parseVmixXML(text, forceClockSync);
+    parseVmixXML(text);
     if(!state.connected) setConnected(true);
     else state.connected=true;
   }catch(e){
@@ -2740,8 +2524,8 @@ async function fetchVmixState(forceClockSync=false){
 // and Countdown.mp4 is only relevant in Countdown Mode (General Mode never
 // touches it at all).
 function getRequiredVmixInputs(){
-  const sb = getSBInput();   // SB-LOGO.gtzip or SB-TileName.gtzip
-  const pa = resolveInputTitle(state.titleType==='logo' ? 'PA-LOGO.gtzip' : 'PA-TileName.gtzip');
+  const sb = getSBInput();   // SB-LOGO.gtzip or SB-TITLE.gtzip
+  const pa = resolveInputTitle(state.titleType==='logo' ? 'PA-LOGO.gtzip' : 'PA-TITLE.gtzip');
   const req = [sb, pa];
   if (state.matchMode==='thai') req.push('Countdown.mp4');
   req.push('Goal.mp4');
@@ -2758,7 +2542,7 @@ function updateReadinessCheck(){
   }).join('');
 }
 
-function parseVmixXML(xmlText, forceClockSync=false){
+function parseVmixXML(xmlText){
   try{
     const doc=new DOMParser().parseFromString(xmlText,'text/xml');
     const inputs=doc.querySelectorAll('input');
@@ -2785,39 +2569,8 @@ function parseVmixXML(xmlText, forceClockSync=false){
       return;
     }
 
-    // ── CLOCK SYNC ──
-    // ดึงค่า Time.Text จาก SB input ที่กำลังใช้งานอยู่ใน vMix
-    // เพื่อ sync ตัวเลขในแอพกลับมาตรง หลังเปิดจอมือถือหรือ reconnect
-    // ── CLOCK DISPLAY SYNC (multi-device) ──
-    // สำคัญ: ต้องอ่านจาก "ไฟล์ SB ที่เลือกอยู่จริง" (ตาม Title Type) เท่านั้น
-    //   ห้ามใช้ startsWith('SB-') เพราะจะไปเจอ SB-LOGO ก่อนแล้ว break
-    //   ทำให้ตอนใช้ SB-TileName อ่านเวลาจากไฟล์ผิด
-    // BUG FIXED: this used to overwrite state.clockSeconds from vMix's XML on
-    // EVERY 10s auto-refresh poll unconditionally — vMix's own Countdown can
-    // lag a second or two behind the local ticker at the instant the XML is
-    // read, so every poll caused a visible "back a few seconds, then jump
-    // forward" glitch on a clock that was already running correctly. Only
-    // resync from vMix when this device ISN'T actively ticking its own clock,
-    // OR when the caller explicitly asks for it (forceClockSync — used by the
-    // wake-up handler and manual refresh, where drift is actually expected:
-    // e.g. a locked phone's JS timer was throttled while the screen was off).
-    // vMix's native Countdown is the time authority for BOTH title types now.
-    if (!state.clockRunning || forceClockSync) {
-      const sbInputName = getSBInput();  // 'SB-LOGO.gtzip' หรือ 'SB-TileName.gtzip'
-      const sbBase = sbInputName.replace('.gtzip','');
-      const sbInp = Array.from(inputs).find(i=>{
-        const t=i.getAttribute('title')||'';
-        return t===sbInputName || t===sbBase || t.startsWith(sbBase);   // prefix: matches rebuilt names like SB-TileName-NEW.gtzip
-      });
-      if (sbInp){
-        const timeNode = sbInp.querySelector('text[name="Time"]')
-                      || sbInp.querySelector('[name="Time"]')
-                      || sbInp.querySelector('text[name="Time.Text"]');
-        if (timeNode && timeNode.textContent.trim()){
-          syncClockFromVmixText(timeNode.textContent.trim());
-        }
-      }
-    }
+    // Clock is never read back from vMix's XML anymore — vMixController's
+    // ClockEngine is the single time authority; this app mirrors GET /clock.
 
     // Score is no longer read back from vMix's XML here — vMixController's
     // config.json is the shared source of truth now (see applyConfig()),
@@ -2897,6 +2650,8 @@ async function loadConfigFromServer(){
     if(cfg.appVersion){
       const hv=document.getElementById('headerVersion');
       if(hv) hv.textContent='— vMix Controller v'+cfg.appVersion;
+      const hc=document.getElementById('headerVersionCompact');
+      if(hc) hc.textContent='v'+cfg.appVersion;
     }
     addLog('ok','โหลด config จาก vMixController แล้ว');
   }catch(e){
@@ -3262,7 +3017,7 @@ async function connectVmix(){
   try{
     const resp=await fetch(`http://${ip}:${port}/api/`,{mode:'cors'});
     const text=await resp.text();
-    parseVmixXML(text, true);   // (re)connecting — drift is plausible, force the resync
+    parseVmixXML(text);
     setConnected(true);
     showToast('Connected','success');
     // ดึงการตั้งค่าแมตช์ล่าสุดจาก vMixController (single source of truth)
@@ -3380,14 +3135,12 @@ function showToast(msg,type='info'){
 setInterval(()=>{if(state.connected)fetchVmixState();},10000);
 
 // WAKE-UP SYNC — เมื่อเปิดจอมือถือกลับมา (จากปิดจอหรือสลับแอพ)
-// ให้ดึงเวลาจริงจาก vMix XML ทันที เพื่อ sync ตัวเลขในแอพกลับมาตรง
+// ดึง config + สถานะนาฬิกาจาก server ทันที ให้จอกลับมาตรงโดยไม่รอรอบ poll
 document.addEventListener('visibilitychange', ()=>{
   if (document.visibilityState === 'visible'){
-    loadConfigFromServer();   // ตั้งค่าอาจถูกแก้บนคอมระหว่างจอปิด
-    if (state.connected && state.clockRunning) {
-      addLog('info','Screen woke up — syncing clock from vMix...');
-      fetchVmixState(true);
-    }
+    loadConfigFromServer();       // ตั้งค่าอาจถูกแก้บนคอมระหว่างจอปิด
+    refreshClockFromServer();     // เวลาบนจอ = ของ server เสมอ
+    if (state.connected) fetchVmixState();   // รีเฟรชรายการ input/สถานะ PGM
   }
 });
 
@@ -3438,23 +3191,22 @@ setTitleType('logo');
 setMatchMode('thai');
 
 // ── MATCH CONFIG WIRING (vMixController is the source of truth) ──
-// checkResumeState() must run AFTER config has loaded (not just in parallel)
-// -- it needs the real titleType from the server to know which SB file to
-// check (getSBInput()), otherwise it could check the wrong one on a device
-// that hasn't synced config yet.
-claimSession().then(loadConfigFromServer).then(checkResumeState);
-setInterval(loadConfigFromServer, 15000);    // pick up edits made on the desktop app + session status
-// Fast session check (4s): a superseded device must stop writing the on-air
-// clock within seconds, not wait out the 15s full-config poll — every extra
-// second is two controllers interleaving Time.Text writes on the broadcast.
-// Reads only the local vMixController JSON; no vMix traffic, no config apply.
-setInterval(async()=>{
-  if(!state.mySessionId) return;
+claimSession().then(loadConfigFromServer).then(refreshClockFromServer);
+setInterval(loadConfigFromServer, 15000);    // pick up edits made on the desktop app
+// Fast clock+session poll (4s): mirrors the server-side ClockEngine state
+// (the single time authority) and the active-session id in one cheap local
+// request. Between polls the display extrapolates via getCurrentClockSeconds().
+async function refreshClockFromServer(){
   try{
-    const r=await fetch('/config',{cache:'no-store'});
-    if(r.ok){ const c=await r.json(); checkSessionStatus(c.activeSessionId); }
+    const r=await fetch('/clock',{cache:'no-store'});
+    if(r.ok){
+      const st=await r.json();
+      applyClockState(st);
+      checkSessionStatus(st.activeSessionId);
+    }
   }catch(e){/* server briefly unreachable — next tick retries */}
-}, 4000);
+}
+setInterval(refreshClockFromServer, 4000);
 // quick edits on phone/iPad: any input change in the Settings tab → save back
 (()=>{
   const panel=document.getElementById('panel-settings');

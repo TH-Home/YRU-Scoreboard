@@ -38,10 +38,11 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote
+from urllib.parse import unquote, quote
 import urllib.request
 
 import tkinter as tk
@@ -71,7 +72,7 @@ except Exception:
 # CONSTANTS / PATHS
 # ═════════════════════════════════════════════════════════════════════════════
 APP_NAME    = "vMixController"
-APP_VERSION = "4.12.0"
+APP_VERSION = "5.1.0"
 HTTP_PORT   = 8080
 GITHUB_REPO = "TH-Home/YRU-Scoreboard"   # used only for the update check (public repo, no auth needed)
 
@@ -113,6 +114,10 @@ DEFAULT_CONFIG = {
     # just the shared value every connected device reads back to stay in sync.
     "homeScore": 0,
     "awayScore": 0,
+    # vMix API endpoint — vMixController runs on the vMix machine itself, so
+    # the ClockEngine talks to vMix over loopback (no WiFi in the path).
+    "vmixHost": "127.0.0.1",
+    "vmixPort": 8088,
 }
 
 DAYS   = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -351,6 +356,314 @@ MATCHLOG = MatchLog()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# CLOCK ENGINE — server-side match clock, the ONLY writer of match time.
+# Runs inside vMixController (which lives on the vMix machine and never
+# closes), pushes the time as plain text to the scoreboard title once per
+# second over loopback, and stops exactly at each period's limit even when no
+# browser is open. Replaces the old browser-driven clock, which suffered
+# mobile timer throttling, WiFi drops, and multi-device write wars.
+# ═════════════════════════════════════════════════════════════════════════════
+class ClockEngine:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.running = False
+        self.base_seconds = 0.0      # seconds at the anchor point
+        self.anchor = None           # time.monotonic() at (re)start — immune to wall-clock edits
+        self.period = 1
+        self._corrections = 0        # times the auditor had to fix the on-air countdown
+        self._issue = None           # last problem seen on air (stall / counting down / drift)
+        self._audit_prev = None      # Time.Text seconds at the previous audit pass
+        self._wd_tick = 0
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    # -- period rules (same logic as the web app) ------------------------------
+    def _period_mins(self):
+        try:
+            return max(1, int(CONFIG.get().get("periodMins", 45)))
+        except Exception:
+            return 45
+
+    def period_start(self, p):
+        continuous = CONFIG.get().get("clockMode", "continuous") == "continuous"
+        return (p - 1) * self._period_mins() * 60 if continuous else 0
+
+    def period_limit(self, p):
+        continuous = CONFIG.get().get("clockMode", "continuous") == "continuous"
+        return p * self._period_mins() * 60 if continuous else self._period_mins() * 60
+
+    # -- state ------------------------------------------------------------------
+    def _seconds_locked(self):
+        live = self.base_seconds
+        if self.running and self.anchor is not None:
+            live += time.monotonic() - self.anchor
+        return min(int(live), self.period_limit(self.period))
+
+    def _state_locked(self):
+        cfg = CONFIG.get()
+        return {"running": self.running, "seconds": self._seconds_locked(),
+                "period": self.period, "periodMins": self._period_mins(),
+                "periodCount": int(cfg.get("periodCount", 2)),
+                "clockMode": cfg.get("clockMode", "continuous"),
+                "foreignWrites": self._corrections,
+                "lastForeign": self._issue}
+
+    def get_state(self):
+        with self._lock:
+            return self._state_locked()
+
+    # -- actions (each returns the fresh state dict) ----------------------------
+    def start(self):
+        started = False
+        with self._lock:
+            if not self.running and self.base_seconds < self.period_limit(self.period):
+                resuming = self.base_seconds > self.period_start(self.period)
+                self.running = True
+                self.anchor = time.monotonic()
+                self._audit_prev = None       # fresh run — don't false-flag a stall
+                started = True
+            st = self._state_locked()
+        if started:
+            self._log_event("resume" if resuming else "start", st["seconds"])
+            self._drive_start(st["seconds"])
+        return st
+
+    def pause(self):
+        with self._lock:
+            if self.running:
+                self.base_seconds = min(self.base_seconds + (time.monotonic() - self.anchor),
+                                        float(self.period_limit(self.period)))
+                self.anchor = None
+                self.running = False
+            st = self._state_locked()
+        self._log_event("pause", st["seconds"])
+        self._audit_prev = None   # phase change — first audit must not compare against a running-era sample
+        # Suspend freezes the display in place (Stop would reset it to the full
+        # Duration — the "120:00" flash), then pin the exact paused second.
+        self._cd("SuspendCountdown")
+        self._cd("ChangeCountdown", self._fmt3(st["seconds"]))
+        return st
+
+    def reset(self):
+        with self._lock:
+            self.running = False
+            self.anchor = None
+            self.base_seconds = float(self.period_start(self.period))
+            st = self._state_locked()
+        self._log_event("reset", st["seconds"])
+        self._audit_prev = None
+        self._cd("SuspendCountdown")                          # safe normalize (Stop is banned - see _drive_start)
+        self._cd("ChangeCountdown", self._fmt3(st["seconds"]))
+        return st
+
+    def set_seconds(self, secs):
+        """Manual clock edit — only honored while stopped, same guard as the UI."""
+        with self._lock:
+            if not self.running:
+                self.base_seconds = float(max(0, min(int(secs), self.period_limit(self.period))))
+            st = self._state_locked()
+        self._log_event("reset", st["seconds"])   # re-anchor crash recovery to the edit
+        self._cd("ChangeCountdown", self._fmt3(st["seconds"]))
+        return st
+
+    def select_period(self, p):
+        try:
+            p = max(1, min(int(p), int(CONFIG.get().get("periodCount", 2))))
+        except Exception:
+            p = 1
+        with self._lock:
+            self.period = p
+            if not self.running:
+                self.base_seconds = float(self.period_start(p))
+            st = self._state_locked()
+        if not st["running"]:
+            self._log_event("reset", st["seconds"])
+            self._cd("SuspendCountdown")
+            self._cd("ChangeCountdown", self._fmt3(st["seconds"]))
+        return st
+
+    def restore_from_matchlog(self):
+        """Silent crash recovery at app startup: if the log says the clock was
+        running when we last saw it, recompute elapsed wall-clock time and keep
+        counting as if nothing happened. No dialogs — the server IS the clock."""
+        st = MATCHLOG.last_clock_state()
+        if not st or not st.get("running"):
+            return
+        try:
+            t0 = datetime.datetime.fromisoformat(str(st.get("anchorWallClock", "")).replace("Z", "+00:00"))
+            elapsed = (datetime.datetime.now(datetime.timezone.utc) - t0).total_seconds()
+            secs = max(0.0, float(st.get("clockSecondsAtAnchor", 0)) + elapsed)
+        except Exception:
+            return
+        with self._lock:
+            self.period = int(st.get("period", 1))
+            lim = float(self.period_limit(self.period))
+            self.base_seconds = min(secs, lim)
+            if self.base_seconds < lim:
+                self.running = True
+                self.anchor = time.monotonic()
+            cur = self._state_locked()
+        if cur["running"]:
+            self._log_event("resume", cur["seconds"])
+            self._drive_start(cur["seconds"])
+        else:
+            self._cd("SuspendCountdown")
+            self._cd("ChangeCountdown", self._fmt3(cur["seconds"]))
+
+    # -- worker: period-end enforcement + on-air audit ---------------------------
+    # The countdown RENDERS inside vMix (frame-accurate, zero re-render churn);
+    # this thread only (1) ends periods exactly on time and (2) audits the
+    # on-air value every ~4s, repairing stalls/drift/rogue writes itself.
+    def _worker(self):
+        while True:
+            try:
+                ended = False
+                with self._lock:
+                    if self.running:
+                        raw = self.base_seconds + (time.monotonic() - self.anchor)
+                        lim = self.period_limit(self.period)
+                        if raw >= lim:
+                            self.base_seconds = float(lim)
+                            self.anchor = None
+                            self.running = False
+                            ended = True
+                        secs = self._seconds_locked()
+                    else:
+                        secs = None
+                if ended:
+                    self._audit_prev = None
+                    # Suspend freezes in place (no Duration-reset flash), then pin.
+                    self._cd("SuspendCountdown")
+                    self._cd("ChangeCountdown", self._fmt3(secs))
+                    self._log_event("pause", secs)
+                self._wd_tick += 1
+                if self._wd_tick >= 16:          # ~every 4s, running or not
+                    self._wd_tick = 0
+                    self._watchdog_check()
+            except Exception:
+                pass   # never let the clock thread die
+            time.sleep(0.25)
+
+    def _watchdog_check(self):
+        """On-air auditor. Reads Time.Text back from vMix and verifies the
+        native countdown is doing what the engine expects:
+        - running but value frozen        -> re-drive (Change + Set + Start)
+        - value moving BACKWARD           -> Reverse unticked in the GT file;
+                                             re-drive and surface the issue
+        - drift > 2s from engine time     -> pin back (ChangeCountdown)
+        - stopped but value still moving  -> zombie countdown; stop + pin
+        Every repair is counted (foreignWrites) with the evidence kept
+        (lastForeign), both visible via GET /clock."""
+        try:
+            cfg = CONFIG.get()
+            host, port = cfg.get("vmixHost", "127.0.0.1"), cfg.get("vmixPort", 8088)
+            with urllib.request.urlopen(f"http://{host}:{port}/api/", timeout=1) as r:
+                xml = r.read().decode("utf-8", "replace")
+            m = re.search(r'title="' + re.escape(self._clock_input())
+                          + r'".{0,500}?name="Time\.Text">([^<]*)<', xml, re.S)
+            if not m:
+                return
+            shown = m.group(1).strip()
+            try:
+                parts = [int(x) for x in shown.split(":")]
+                if len(parts) == 2:
+                    shown_secs = parts[0] * 60 + parts[1]
+                else:
+                    shown_secs = parts[0] * 3600 + parts[1] * 60 + parts[2]
+            except Exception:
+                self._audit_prev = None
+                return
+            with self._lock:
+                running = self.running
+                eng = self._seconds_locked()
+            prev = self._audit_prev
+            self._audit_prev = shown_secs
+            now = datetime.datetime.now().strftime("%H:%M:%S")
+            if running:
+                if prev is not None and shown_secs < prev:
+                    self._repair(f"counting DOWN ({prev}->{shown_secs}s) - tick Reverse in the GT file [{now}]", eng, restart=True)
+                elif prev is not None and shown_secs == prev:
+                    self._repair(f"stalled at {shown} [{now}]", eng, restart=True)
+                elif abs(shown_secs - eng) > 2:
+                    self._repair(f"drift {shown} vs engine {eng}s [{now}]", eng)
+            else:
+                if prev is not None and shown_secs != prev:
+                    self._repair(f"still counting while paused ({shown}) [{now}]", eng, stop=True)
+                elif abs(shown_secs - eng) > 1:
+                    self._repair(f"pinned value wrong ({shown} vs {eng}s) [{now}]", eng)
+        except Exception:
+            pass
+
+    def _repair(self, issue, eng_secs, restart=False, stop=False):
+        self._corrections += 1
+        self._issue = issue
+        if restart:
+            self._drive_start(eng_secs)       # full normalize + run + pin
+        else:
+            if stop:
+                self._cd("SuspendCountdown")  # zombie while paused - freeze it
+            self._cd("ChangeCountdown", self._fmt3(eng_secs))
+        self._audit_prev = None   # next pass starts fresh after a repair
+
+    # -- vMix I/O -----------------------------------------------------------------
+    def _clock_input(self):
+        return "SB-LOGO.gtzip" if CONFIG.get().get("titleType", "logo") == "logo" else "SB-TITLE.gtzip"
+
+    @staticmethod
+    def _fmt3(secs):
+        # Countdown commands take HH:MM:SS; the on-screen format (mm:ss) is
+        # governed by the countdown object itself in the GT file.
+        h, rem = divmod(int(secs), 3600)
+        m, s = divmod(rem, 60)
+        return f"{h:02d}:{m:02d}:{s:02d}"
+
+    def _vmix_call(self, func, params):
+        cfg = CONFIG.get()
+        host, port = cfg.get("vmixHost", "127.0.0.1"), cfg.get("vmixPort", 8088)
+        query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
+        url = f"http://{host}:{port}/api/?Function={func}&{query}"
+        try:
+            with urllib.request.urlopen(url, timeout=1) as r:
+                r.read(1)
+            return True
+        except Exception:
+            return False   # transient — the next second's push self-corrects
+
+    def _cd(self, func, value=None):
+        params = {"Input": self._clock_input()}
+        if value is not None:
+            params["Value"] = value
+        return self._vmix_call(func, params)
+
+    def _drive_start(self, secs):
+        # vMix's countdown API (mapped LIVE against this build) is a minefield:
+        #   * StartCountdown TOGGLES run/pause, and on the pause->run edge the
+        #     display snaps briefly to an unstoppable internal timeline
+        #   * ChangeCountdown truly sets position only while RUNNING
+        #     (while paused it changes the display only, ignored on resume)
+        #   * StopCountdown leaves the object in an unpredictable state - banned
+        #   * SuspendCountdown always pauses, idempotent - the one safe anchor
+        # So: normalize to paused, cosmetically pre-pin the frozen frame, set
+        # the duration cap, toggle to running from the KNOWN paused state, then
+        # authoritatively pin while running. Deterministic from ANY state.
+        pos = self._fmt3(secs)
+        self._cd("SuspendCountdown")
+        self._cd("ChangeCountdown", pos)
+        self._cd("SetCountdown", "02:00:00")
+        self._cd("StartCountdown")
+        self._cd("ChangeCountdown", pos)
+
+    def _log_event(self, event, secs):
+        try:
+            ts = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+            MATCHLOG.clock_event(event, int(secs), self.period, ts)
+        except Exception:
+            pass
+
+
+CLOCK = ClockEngine()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # SESSION (single active controller — last device to claim wins, in-memory only)
 # ═════════════════════════════════════════════════════════════════════════════
 class SessionStore:
@@ -412,6 +725,10 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/config":
             payload = dict(CONFIG.get(), appVersion=APP_VERSION, activeSessionId=SESSION.current())
             self._send(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+        elif path == "/clock":
+            # Clock + session in one payload: the web app polls this fast (4s)
+            payload = dict(CLOCK.get_state(), activeSessionId=SESSION.current())
+            self._send(200, json.dumps(payload).encode("utf-8"))
         elif path == "/matchlog/resume":
             self._send(200, json.dumps(MATCHLOG.last_clock_state(), ensure_ascii=False).encode("utf-8"))
         elif path.startswith("/logos/"):
@@ -430,6 +747,26 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/session/claim":
             new_id = SESSION.claim()
             self._send(200, json.dumps({"sessionId": new_id}).encode("utf-8"))
+        elif path == "/clock":
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(n).decode("utf-8"))
+                action = payload.get("action")
+                if action == "start":
+                    st = CLOCK.start()
+                elif action == "pause":
+                    st = CLOCK.pause()
+                elif action == "reset":
+                    st = CLOCK.reset()
+                elif action == "set":
+                    st = CLOCK.set_seconds(payload.get("seconds", 0))
+                elif action == "period":
+                    st = CLOCK.select_period(payload.get("period", 1))
+                else:
+                    raise ValueError("unknown action")
+                self._send(200, json.dumps(dict(st, activeSessionId=SESSION.current())).encode("utf-8"))
+            except Exception as e:
+                self._send(400, json.dumps({"error": str(e)}).encode("utf-8"))
         elif path == "/config":
             try:
                 n = int(self.headers.get("Content-Length", "0"))
@@ -1156,6 +1493,7 @@ def main():
         messagebox.showerror(APP_NAME, f"เปิด HTTP server ที่ port {HTTP_PORT} ไม่ได้:\n{e}\n\n"
                                        f"อาจมีโปรแกรมอื่น (เช่น python -m http.server) ใช้ port นี้อยู่")
         return
+    CLOCK.restore_from_matchlog()   # silent crash recovery — the server IS the clock now
     App().run()
 
 
